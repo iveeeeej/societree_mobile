@@ -2,8 +2,8 @@
 <project version="4">
   <component name="ProjectModuleManager">
     <modules>
-      <module fileurl="file://$PROJECT_DIR$/societree_app.iml" filepath="$PROJECT_DIR$/societree_app.iml" />
-      <module fileurl="file://$PROJECT_DIR$/android/societree_app_android.iml" filepath="$PROJECT_DIR$/android/societree_app_android.iml" />
+      <module fileurl="file://$PROJECT_DIR$/centralized_societree.iml" filepath="$PROJECT_DIR$/centralized_societree.iml" />
+      <module fileurl="file://$PROJECT_DIR$/android/centralized_societree_android.iml" filepath="$PROJECT_DIR$/android/centralized_societree_android.iml" />
     </modules>
   </component>
 </project>
