@@ -4,7 +4,7 @@ import 'dart:io';
 import 'package:http/http.dart' as http;
 import 'package:centralized_societree/config/api_config.dart';
 import 'package:centralized_societree/services/api_service.dart';
-import 'package:centralized_societree/screens/elecom_admin/candidate_edit_screen.dart';
+import 'package:centralized_societree/modules/elecom/elecom_admin/candidate_edit_screen.dart';
 
 class CandidatesScreen extends StatefulWidget {
   const CandidatesScreen({super.key});

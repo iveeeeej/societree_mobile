@@ -1,8 +1,8 @@
 import 'package:flutter/material.dart';
-import 'package:centralized_societree/screens/elecom_admin/candidates_screen.dart';
+import 'package:centralized_societree/modules/elecom/elecom_admin/candidates_screen.dart';
 import 'dart:ui';
-import '../login_screen.dart';
-import '../../services/api_service.dart';
+import '../../../screens/login_screen.dart';
+import '../../../services/api_service.dart';
 import 'candidate_registration_screen.dart';
 import 'package:image_picker/image_picker.dart';
 import 'dart:io';

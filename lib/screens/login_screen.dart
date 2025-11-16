@@ -1,8 +1,8 @@
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
-import 'student_dashboard.dart';
+import 'societree/societree_dashboard.dart';
 import '../services/api_service.dart';
-import 'elecom_admin/admin_home_screen.dart';
+import '../modules/elecom/elecom_admin/admin_home_screen.dart';
 import 'package:centralized_societree/config/api_config.dart';
 
 class LoginScreen extends StatefulWidget {
@@ -61,8 +61,12 @@ class _LoginScreenState extends State<LoginScreen> {
         ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(msg)));
         if (success && isLogin) {
           final role = (res['role'] ?? '').toString().toLowerCase();
-          final Widget next = role == 'admin' ? const AdminHomeScreen() : const StudentDashboard();
-          Navigator.of(context).pushReplacement(MaterialPageRoute(builder: (_) => next));
+          final Widget next = role == 'admin'
+              ? const AdminHomeScreen()
+              : const SocieTreeDashboard();
+          Navigator.of(context).pushReplacement(
+            MaterialPageRoute(builder: (_) => next),
+          );
         }
       }
     } catch (e) {

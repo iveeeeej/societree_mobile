@@ -283,9 +283,16 @@ class ApiService {
       print(
         'API ${res.request?.url} -> ${res.statusCode} RAW: ${raw.substring(0, raw.length > 300 ? 300 : raw.length)}',
       );
+      // Provide clearer messages for common HTML error pages
+      String friendlyMessage = 'Invalid server response';
+      if (res.statusCode == 404) {
+        friendlyMessage = 'Endpoint not found (404). Please verify the backend path and that the file exists.';
+      } else if (res.statusCode >= 500) {
+        friendlyMessage = 'Server error (${res.statusCode}). Please try again later.';
+      }
       return {
         'success': false,
-        'message': 'Invalid server response',
+        'message': friendlyMessage,
         'status': res.statusCode,
         'raw': raw,
       };
