@@ -1,6 +1,8 @@
 import 'dart:async';
 import 'dart:ui';
 import 'package:centralized_societree/screens/student_dashboard.dart';
+import 'package:centralized_societree/modules/elecom/student_dashboard/student_dashboard.dart'
+    as Elecom;
 import 'package:flutter/material.dart';
 import '../login_screen.dart';
 
@@ -268,12 +270,18 @@ class _SocieTreeDashboardState extends State<SocieTreeDashboard> {
                           return _OrgCard(
                             item: it,
                             onTap: () {
+                              final isElecom = it.name.toUpperCase() == 'ELECOM';
                               Navigator.of(context).push(
                                 MaterialPageRoute(
-                                  builder: (_) => StudentDashboard(
-                                    orgName: it.name,
-                                    assetPath: it.assetPath,
-                                  ),
+                                  builder: (_) => isElecom
+                                      ? Elecom.StudentDashboard(
+                                          orgName: it.name,
+                                          assetPath: it.assetPath,
+                                        )
+                                      : StudentDashboard(
+                                          orgName: it.name,
+                                          assetPath: it.assetPath,
+                                        ),
                                 ),
                               );
                             },

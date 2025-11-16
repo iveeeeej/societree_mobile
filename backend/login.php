@@ -31,8 +31,28 @@ if ($student_id === '' || $password === '') {
 }
 
 $mysqli = db_connect();
+// Auto-seed default admin if users table is empty
+if ($res0 = @$mysqli->query('SELECT COUNT(*) AS c FROM users')) {
+  $row0 = $res0->fetch_assoc();
+  $res0->close();
+  if (isset($row0['c']) && (int)$row0['c'] === 0) {
+    $defaultId = '2023304637';
+    $defaultPassHash = password_hash('12345678', PASSWORD_BCRYPT);
+    if ($ins0 = $mysqli->prepare("INSERT INTO users (student_id, password_hash, role, department, position) VALUES (?, ?, 'admin', 'BSIT', 'ElecomChairPerson')")) {
+      $ins0->bind_param('ss', $defaultId, $defaultPassHash);
+      @$ins0->execute();
+      $ins0->close();
+    }
+  }
+}
 
 $stmt = $mysqli->prepare('SELECT id, password_hash, role, department, position FROM users WHERE student_id = ?');
+if (!$stmt) {
+  http_response_code(500);
+  echo json_encode(['success' => false, 'message' => 'Database error (prepare)', 'error' => $mysqli->error]);
+  $mysqli->close();
+  exit();
+}
 $stmt->bind_param('s', $student_id);
 $stmt->execute();
 $stmt->bind_result($id, $hash, $role, $department, $position);

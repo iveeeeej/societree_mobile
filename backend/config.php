@@ -1,24 +1,30 @@
 <?php
 header('Content-Type: application/json');
 header('Access-Control-Allow-Origin: *');
-header('Access-Control-Allow-Methods: POST, OPTIONS');
+header('Access-Control-Allow-Methods: GET, POST, OPTIONS');
 header('Access-Control-Allow-Headers: Content-Type');
 // Prevent PHP notices/warnings from polluting JSON responses
 @ini_set('display_errors', '0');
 @error_reporting(0);
+// Ensure updated code is loaded even if OPcache is enabled (safe no-op otherwise)
+if (function_exists('opcache_reset')) { @opcache_reset(); }
 if ($_SERVER['REQUEST_METHOD'] === 'OPTIONS') {
   http_response_code(200);
   exit();
 }
 
-$DB_HOST = 'localhost';
+$DB_HOST = '103.252.118.161';
 $DB_USER = 'root';
-$DB_PASS = '';
+$DB_PASS = 'ustpServer123!';
 $DB_NAME = 'societree_app';
+$DB_PORT = 3306;
+
+// Bump this when schema-migration logic changes, so we can verify deployment
+define('CONFIG_SCHEMA_VERSION', '2.0-compat-migrations');
 
 function db_connect() {
-  global $DB_HOST, $DB_USER, $DB_PASS, $DB_NAME;
-  $mysqli = new mysqli($DB_HOST, $DB_USER, $DB_PASS);
+  global $DB_HOST, $DB_USER, $DB_PASS, $DB_NAME, $DB_PORT;
+  $mysqli = new mysqli($DB_HOST, $DB_USER, $DB_PASS, null, $DB_PORT);
   if ($mysqli->connect_error) {
     http_response_code(500);
     echo json_encode(['success' => false, 'message' => 'DB connection failed: ' . $mysqli->connect_error]);
@@ -48,14 +54,43 @@ function db_connect() {
     exit();
   }
 
-  // In case table exists from older version, ensure columns and indexes exist
-  $mysqli->query("ALTER TABLE users ADD COLUMN IF NOT EXISTS student_id VARCHAR(64) NULL");
-  $mysqli->query("CREATE UNIQUE INDEX IF NOT EXISTS idx_users_student_id ON users (student_id)");
-  $mysqli->query("ALTER TABLE users ADD COLUMN IF NOT EXISTS role VARCHAR(32) NOT NULL DEFAULT 'user'");
-  $mysqli->query("ALTER TABLE users ADD COLUMN IF NOT EXISTS department VARCHAR(128) NULL");
-  $mysqli->query("ALTER TABLE users ADD COLUMN IF NOT EXISTS position VARCHAR(128) NULL");
-  // Try to drop old email column if it exists (MySQL 8+ supports IF EXISTS)
-  $mysqli->query("ALTER TABLE users DROP COLUMN IF EXISTS email");
+  // Helpers to check column and index existence for compatibility (older MySQL/MariaDB)
+  $dbNameEsc = $mysqli->real_escape_string($DB_NAME);
+  $hasColumn = function(mysqli $m, string $table, string $col) use ($dbNameEsc): bool {
+    $t = $m->real_escape_string($table);
+    $c = $m->real_escape_string($col);
+    $sql = "SELECT 1 FROM INFORMATION_SCHEMA.COLUMNS WHERE TABLE_SCHEMA='{$dbNameEsc}' AND TABLE_NAME='{$t}' AND COLUMN_NAME='{$c}' LIMIT 1";
+    if ($res = @$m->query($sql)) { $ok = $res->num_rows > 0; $res->close(); return $ok; }
+    return false;
+  };
+  $hasIndex = function(mysqli $m, string $table, string $index) use ($dbNameEsc): bool {
+    $t = $m->real_escape_string($table);
+    $i = $m->real_escape_string($index);
+    $sql = "SELECT 1 FROM INFORMATION_SCHEMA.STATISTICS WHERE TABLE_SCHEMA='{$dbNameEsc}' AND TABLE_NAME='{$t}' AND INDEX_NAME='{$i}' LIMIT 1";
+    if ($res = @$m->query($sql)) { $ok = $res->num_rows > 0; $res->close(); return $ok; }
+    return false;
+  };
+
+  // Ensure expected columns/index exist without using IF NOT EXISTS
+  if (!$hasColumn($mysqli, 'users', 'student_id')) {
+    @$mysqli->query("ALTER TABLE users ADD COLUMN student_id VARCHAR(64) NULL");
+  }
+  if (!$hasIndex($mysqli, 'users', 'idx_users_student_id')) {
+    @$mysqli->query("CREATE UNIQUE INDEX idx_users_student_id ON users (student_id)");
+  }
+  if (!$hasColumn($mysqli, 'users', 'role')) {
+    @$mysqli->query("ALTER TABLE users ADD COLUMN role VARCHAR(32) NOT NULL DEFAULT 'user'");
+  }
+  if (!$hasColumn($mysqli, 'users', 'department')) {
+    @$mysqli->query("ALTER TABLE users ADD COLUMN department VARCHAR(128) NULL");
+  }
+  if (!$hasColumn($mysqli, 'users', 'position')) {
+    @$mysqli->query("ALTER TABLE users ADD COLUMN position VARCHAR(128) NULL");
+  }
+  // Remove legacy email column if present (compat safe)
+  if ($hasColumn($mysqli, 'users', 'email')) {
+    @$mysqli->query("ALTER TABLE users DROP COLUMN email");
+  }
 
   // Seed/ensure default admin user
   $defaultId = '2023304637';
