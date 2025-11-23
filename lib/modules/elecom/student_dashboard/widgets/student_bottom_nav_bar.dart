@@ -4,6 +4,7 @@ import 'dart:ui';
 import '../../services/elecom_voting_service.dart';
 import 'package:centralized_societree/services/user_session.dart';
 import '../services/student_dashboard_service.dart';
+import 'package:centralized_societree/modules/elecom/voting/voting_screen.dart';
 
 class StudentBottomNavBar {
   static Widget? build({
@@ -63,7 +64,7 @@ class StudentBottomNavBar {
                       currentIndex: 0,
                       onTap: (i) {
                         if (i == 1) {
-                          _openDirectVoting(context);
+                          openVoteFlow(context);
                           return;
                         }
                         if (i == 3) {
@@ -163,7 +164,16 @@ class StudentBottomNavBar {
 
   // Public helper to open the election/voting flow from anywhere in the Elecom student UI
   static Future<void> openVoteFlow(BuildContext context) async {
-    await _openDirectVoting(context);
+    final sid = UserSession.studentId ?? '';
+    if (sid.isEmpty) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('Please login to vote.')),
+      );
+      return;
+    }
+    await Navigator.of(context).push(
+      MaterialPageRoute(builder: (_) => const VotingScreen()),
+    );
   }
 
   // ===== Helpers for modal flows =====
@@ -520,7 +530,7 @@ class StudentBottomNavBar {
                         Expanded(
                           child: FilledButton.icon(
                             onPressed: () async {
-                              final ok = await ElecomVotingService.submitFinalVote(
+                              final (ok, msg) = await ElecomVotingService.submitFinalVote(
                                 electionId,
                                 sid,
                                 selections,
@@ -528,7 +538,8 @@ class StudentBottomNavBar {
                               if (ok && context.mounted) {
                                 Navigator.of(context).pop(true);
                               } else if (context.mounted) {
-                                ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Failed to submit vote.')));
+                                final text = (msg.isNotEmpty) ? 'Failed to submit vote: ' + msg : 'Failed to submit vote.';
+                                ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(text)));
                               }
                             },
                             icon: const Icon(Icons.how_to_vote_outlined),
@@ -742,12 +753,13 @@ class _DirectVoteContentState extends State<_DirectVoteContent> {
                 if (mounted) ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Please login to vote.')));
                 return;
               }
-              final ok = await ElecomVotingService.submitDirectVote(sid, selections);
+              final (ok, msg) = await ElecomVotingService.submitDirectVote(sid, selections);
               if (ok && mounted) {
                 Navigator.of(context).pop();
                 ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Vote submitted successfully.')));
               } else if (mounted) {
-                ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Failed to submit vote.')));
+                final text = (msg.isNotEmpty) ? 'Failed to submit vote: ' + msg : 'Failed to submit vote.';
+                ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(text)));
               }
             },
             icon: const Icon(Icons.how_to_vote_outlined),

@@ -6,6 +6,26 @@ header('Access-Control-Allow-Headers: Content-Type');
 // Prevent PHP notices/warnings from polluting JSON responses
 @ini_set('display_errors', '0');
 @error_reporting(0);
+// Emit JSON on fatal errors to aid debugging of empty-body 500s
+register_shutdown_function(function () {
+  $err = error_get_last();
+  if ($err && in_array($err['type'], [E_ERROR, E_PARSE, E_CORE_ERROR, E_COMPILE_ERROR])) {
+    if (!headers_sent()) {
+      header('Content-Type: application/json');
+    }
+    http_response_code(500);
+    $msg = 'Server fatal error';
+    $detail = isset($err['message']) ? ($err['message'] . ' in ' . ($err['file'] ?? '') . ':' . ($err['line'] ?? '')) : 'fatal';
+    echo json_encode([
+      'success' => false,
+      'message' => $msg . ': ' . $detail,
+      'error' => $detail,
+      'type' => $err['type'] ?? null,
+      'file' => $err['file'] ?? null,
+      'line' => $err['line'] ?? null,
+    ]);
+  }
+});
 // Ensure updated code is loaded even if OPcache is enabled (safe no-op otherwise)
 if (function_exists('opcache_reset')) { @opcache_reset(); }
 if ($_SERVER['REQUEST_METHOD'] === 'OPTIONS') {
@@ -54,16 +74,44 @@ function db_connect() {
     exit();
   }
 
+  // Ensure votes table exists (one vote per student for direct voting)
+  $createVotes = "CREATE TABLE IF NOT EXISTS votes (
+      id INT UNSIGNED AUTO_INCREMENT PRIMARY KEY,
+      student_id VARCHAR(64) NOT NULL UNIQUE,
+      created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+    ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4";
+  if (!$mysqli->query($createVotes)) {
+    http_response_code(500);
+    echo json_encode(['success' => false, 'message' => 'Failed creating votes table']);
+    exit();
+  }
+
+  // Ensure vote_items table exists (one selection per position)
+  $createVoteItems = "CREATE TABLE IF NOT EXISTS vote_items (
+      id INT UNSIGNED AUTO_INCREMENT PRIMARY KEY,
+      vote_id INT UNSIGNED NOT NULL,
+      position VARCHAR(128) NOT NULL,
+      candidate_id INT UNSIGNED NOT NULL,
+      created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+      UNIQUE KEY uniq_vote_position (vote_id, position),
+      CONSTRAINT fk_vote_items_vote FOREIGN KEY (vote_id) REFERENCES votes(id) ON DELETE CASCADE
+    ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4";
+  if (!$mysqli->query($createVoteItems)) {
+    http_response_code(500);
+    echo json_encode(['success' => false, 'message' => 'Failed creating vote_items table']);
+    exit();
+  }
+
   // Helpers to check column and index existence for compatibility (older MySQL/MariaDB)
   $dbNameEsc = $mysqli->real_escape_string($DB_NAME);
-  $hasColumn = function(mysqli $m, string $table, string $col) use ($dbNameEsc): bool {
+  $hasColumn = function($m, $table, $col) use ($dbNameEsc) {
     $t = $m->real_escape_string($table);
     $c = $m->real_escape_string($col);
     $sql = "SELECT 1 FROM INFORMATION_SCHEMA.COLUMNS WHERE TABLE_SCHEMA='{$dbNameEsc}' AND TABLE_NAME='{$t}' AND COLUMN_NAME='{$c}' LIMIT 1";
     if ($res = @$m->query($sql)) { $ok = $res->num_rows > 0; $res->close(); return $ok; }
     return false;
   };
-  $hasIndex = function(mysqli $m, string $table, string $index) use ($dbNameEsc): bool {
+  $hasIndex = function($m, $table, $index) use ($dbNameEsc) {
     $t = $m->real_escape_string($table);
     $i = $m->real_escape_string($index);
     $sql = "SELECT 1 FROM INFORMATION_SCHEMA.STATISTICS WHERE TABLE_SCHEMA='{$dbNameEsc}' AND TABLE_NAME='{$t}' AND INDEX_NAME='{$i}' LIMIT 1";
@@ -90,6 +138,13 @@ function db_connect() {
   // Remove legacy email column if present (compat safe)
   if ($hasColumn($mysqli, 'users', 'email')) {
     @$mysqli->query("ALTER TABLE users DROP COLUMN email");
+  }
+
+  // Ensure candidates_registration has votes tally column
+  if ($hasColumn($mysqli, 'candidates_registration', 'id')) {
+    if (!$hasColumn($mysqli, 'candidates_registration', 'votes')) {
+      @$mysqli->query("ALTER TABLE candidates_registration ADD COLUMN votes INT NOT NULL DEFAULT 0");
+    }
   }
 
   // Seed/ensure default admin user
@@ -151,7 +206,7 @@ define('CLOUDINARY_CLOUD', 'dhhzkqmso');
 define('CLOUDINARY_KEY', '871914741883427');
 define('CLOUDINARY_SECRET', 'ihwwUCjI92s8tBpm24Vqj2CIWJk');
 
-function cloudinary_upload(string $filePath, string $folder, string $publicId = '') {
+function cloudinary_upload($filePath, $folder, $publicId = '') {
   if (!is_file($filePath)) { return [false, null, 'file']; }
   $cloud = CLOUDINARY_CLOUD; $key = CLOUDINARY_KEY; $secret = CLOUDINARY_SECRET;
   if (!$cloud || !$key || !$secret) { return [false, null, 'config']; }
