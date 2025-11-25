@@ -31,13 +31,20 @@ class ApiService {
 
   Future<Map<String, dynamic>> requestPasswordOtp({
     required String studentId,
+    String method = 'email',
+    String? phone,
   }) async {
     final uri = Uri.parse('$baseUrl/forgot_request_otp.php');
+    final payload = {
+      'student_id': studentId,
+      'method': method,
+      if (phone != null && phone.isNotEmpty) 'phone': phone,
+    };
     final res = await http
         .post(
           uri,
           headers: _jsonHeaders,
-          body: jsonEncode({'student_id': studentId}),
+          body: jsonEncode(payload),
         )
         .timeout(_timeout);
     return _decode(res);

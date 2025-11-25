@@ -35,23 +35,65 @@ class _LoginScreenState extends State<LoginScreen> {
   Future<void> _forgotPassword() async {
     if (_loading) return;
     final idCtrl = TextEditingController(text: _emailCtrl.text.trim());
+    String channel = 'email';
+    final phoneCtrl = TextEditingController();
     final ok1 = await showDialog<bool>(
       context: context,
       builder: (ctx) {
         return BackdropFilter(
           filter: ImageFilter.blur(sigmaX: 6, sigmaY: 6),
-          child: AlertDialog(
-            title: const Text('Request OTP'),
-            content: TextField(
-              controller: idCtrl,
-              decoration: const InputDecoration(hintText: 'Enter your student ID'),
-              keyboardType: TextInputType.number,
-              inputFormatters: [FilteringTextInputFormatter.digitsOnly],
+          child: StatefulBuilder(
+            builder: (ctx, setState) => AlertDialog(
+              title: const Text('Request OTP'),
+              content: Column(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  TextField(
+                    controller: idCtrl,
+                    decoration: const InputDecoration(hintText: 'Enter your student ID'),
+                    keyboardType: TextInputType.number,
+                    inputFormatters: [FilteringTextInputFormatter.digitsOnly],
+                  ),
+                  const SizedBox(height: 8),
+                  Row(
+                    children: [
+                      Expanded(
+                        child: RadioListTile<String>(
+                          dense: true,
+                          visualDensity: VisualDensity.compact,
+                          title: const Text('Email'),
+                          value: 'email',
+                          groupValue: channel,
+                          onChanged: (v) => setState(() => channel = v ?? 'email'),
+                        ),
+                      ),
+                      Expanded(
+                        child: RadioListTile<String>(
+                          dense: true,
+                          visualDensity: VisualDensity.compact,
+                          title: const Text('SMS'),
+                          value: 'sms',
+                          groupValue: channel,
+                          onChanged: (v) => setState(() => channel = v ?? 'email'),
+                        ),
+                      ),
+                    ],
+                  ),
+                  if (channel == 'sms') ...[
+                    const SizedBox(height: 4),
+                    TextField(
+                      controller: phoneCtrl,
+                      decoration: const InputDecoration(hintText: 'Phone number (e.g., 09XXXXXXXXX)'),
+                      keyboardType: TextInputType.phone,
+                    ),
+                  ],
+                ],
+              ),
+              actions: [
+                TextButton(onPressed: () => Navigator.pop(ctx, false), child: const Text('CANCEL')),
+                ElevatedButton(onPressed: () => Navigator.pop(ctx, true), child: const Text('SEND')),
+              ],
             ),
-            actions: [
-              TextButton(onPressed: () => Navigator.pop(ctx, false), child: const Text('CANCEL')),
-              ElevatedButton(onPressed: () => Navigator.pop(ctx, true), child: const Text('SEND')),
-            ],
           ),
         );
       },
@@ -64,7 +106,11 @@ class _LoginScreenState extends State<LoginScreen> {
     }
     setState(() => _loading = true);
     try {
-      final res = await _api.requestPasswordOtp(studentId: studentId);
+      final res = await _api.requestPasswordOtp(
+        studentId: studentId,
+        method: channel,
+        phone: channel == 'sms' ? phoneCtrl.text.trim() : null,
+      );
       if (res['success'] == true) {
         if (!mounted) return; ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('OTP sent to your email')));
       } else {

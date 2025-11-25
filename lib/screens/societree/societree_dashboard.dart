@@ -4,6 +4,7 @@ import 'package:centralized_societree/screens/student_dashboard.dart';
 import 'package:centralized_societree/modules/elecom/student_dashboard/student_dashboard.dart'
     as Elecom;
 import 'package:flutter/material.dart';
+import 'package:centralized_societree/services/user_session.dart';
 import '../login_screen.dart';
 
 class SocieTreeDashboard extends StatefulWidget {
@@ -17,12 +18,108 @@ class _SocieTreeDashboardState extends State<SocieTreeDashboard> {
   late final PageController _pageCtrl;
   Timer? _autoTimer;
   int _current = 0;
+  String _displayName = '';
+  String _primaryEmail = '';
+  String _contactNumber = '';
 
   @override
   void initState() {
     super.initState();
     _pageCtrl = PageController();
+    _displayName = (UserSession.studentId ?? '').trim();
+    _primaryEmail = '';
+    _contactNumber = '';
     _startAutoPlay();
+  }
+
+  void _openProfileSheet() {
+    final nameCtrl = TextEditingController(text: _displayName);
+    final emailCtrl = TextEditingController(text: _primaryEmail);
+    final contactCtrl = TextEditingController(text: _contactNumber);
+
+    showModalBottomSheet<void>(
+      context: context,
+      isScrollControlled: true,
+      builder: (ctx) {
+        return Padding(
+          padding: EdgeInsets.only(
+            left: 16,
+            right: 16,
+            top: 20,
+            bottom: MediaQuery.of(ctx).viewInsets.bottom + 20,
+          ),
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Center(
+                child: Container(
+                  width: 38,
+                  height: 4,
+                  decoration: BoxDecoration(
+                    color: Colors.grey.shade400,
+                    borderRadius: BorderRadius.circular(40),
+                  ),
+                ),
+              ),
+              const SizedBox(height: 16),
+              Text(
+                'Update Profile',
+                style: Theme.of(context).textTheme.titleMedium,
+              ),
+              const SizedBox(height: 12),
+              TextField(
+                controller: nameCtrl,
+                decoration: const InputDecoration(
+                  labelText: 'Full name',
+                  prefixIcon: Icon(Icons.badge_outlined),
+                ),
+                textCapitalization: TextCapitalization.words,
+              ),
+              const SizedBox(height: 12),
+              TextField(
+                controller: emailCtrl,
+                decoration: const InputDecoration(
+                  labelText: 'Email address',
+                  prefixIcon: Icon(Icons.email_outlined),
+                ),
+                keyboardType: TextInputType.emailAddress,
+              ),
+              const SizedBox(height: 12),
+              TextField(
+                controller: contactCtrl,
+                decoration: const InputDecoration(
+                  labelText: 'Contact number',
+                  prefixIcon: Icon(Icons.call_outlined),
+                ),
+                keyboardType: TextInputType.phone,
+              ),
+              const SizedBox(height: 20),
+              SizedBox(
+                width: double.infinity,
+                child: ElevatedButton.icon(
+                  icon: const Icon(Icons.save_outlined),
+                  label: const Text('Save Changes'),
+                  onPressed: () {
+                    setState(() {
+                      _displayName = nameCtrl.text.trim();
+                      _primaryEmail = emailCtrl.text.trim();
+                      _contactNumber = contactCtrl.text.trim();
+                    });
+                    Navigator.of(ctx).pop();
+                    ScaffoldMessenger.of(context).showSnackBar(
+                      const SnackBar(
+                        content: Text('Profile updated successfully'),
+                      ),
+                    );
+                  },
+                ),
+              ),
+            ],
+          ),
+        );
+      },
+    );
   }
 
   void _startAutoPlay() {
@@ -94,6 +191,11 @@ class _SocieTreeDashboardState extends State<SocieTreeDashboard> {
           ],
         ),
         actions: [
+          IconButton(
+            tooltip: 'Profile',
+            icon: const Icon(Icons.account_circle_outlined),
+            onPressed: _openProfileSheet,
+          ),
           IconButton(
             tooltip: 'Logout',
             icon: const Icon(Icons.logout),
