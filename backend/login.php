@@ -23,6 +23,8 @@ if ($payload === null) {
 
 $student_id = isset($payload['student_id']) ? trim($payload['student_id']) : '';
 $password = isset($payload['password']) ? (string)$payload['password'] : '';
+// Terms acceptance flag from client (boolean)
+$accept_terms = isset($payload['accept_terms']) && ($payload['accept_terms'] === true || $payload['accept_terms'] === 1 || $payload['accept_terms'] === '1');
 
 if ($student_id === '' || $password === '') {
   http_response_code(422);
@@ -46,7 +48,7 @@ if ($res0 = @$mysqli->query('SELECT COUNT(*) AS c FROM users')) {
   }
 }
 
-$stmt = $mysqli->prepare('SELECT id, password_hash, role, department, position FROM users WHERE student_id = ?');
+$stmt = $mysqli->prepare('SELECT id, password_hash, role, department, position, terms_accepted_at FROM users WHERE student_id = ?');
 if (!$stmt) {
   http_response_code(500);
   echo json_encode(['success' => false, 'message' => 'Database error (prepare)', 'error' => $mysqli->error]);
@@ -55,7 +57,7 @@ if (!$stmt) {
 }
 $stmt->bind_param('s', $student_id);
 $stmt->execute();
-$stmt->bind_result($id, $hash, $role, $department, $position);
+$stmt->bind_result($id, $hash, $role, $department, $position, $termsAcceptedAt);
 if ($stmt->fetch()) {
   // Accept only:
   // 1) plaintext verified against stored bcrypt
@@ -66,6 +68,25 @@ if ($stmt->fetch()) {
   // Close the SELECT statement before any further queries to avoid 'Commands out of sync'
   $stmt->close();
   if ($ok) {
+    // Enforce terms acceptance: if not yet accepted, require client to send accept_terms=true
+    if ($termsAcceptedAt === null || $termsAcceptedAt === '' ) {
+      if ($accept_terms) {
+        if ($updT = $mysqli->prepare('UPDATE users SET terms_accepted_at = NOW() WHERE id = ?')) {
+          $updT->bind_param('i', $id);
+          $updT->execute();
+          $updT->close();
+        }
+      } else {
+        http_response_code(412);
+        echo json_encode([
+          'success' => false,
+          'message' => 'Terms not accepted. Please accept the SocieTree terms to continue.',
+          'requires_terms' => true,
+        ]);
+        $mysqli->close();
+        exit();
+      }
+    }
     // If the stored password is legacy plaintext, upgrade it to bcrypt now.
     if (!$storedIsBcrypt) {
       $newHash = password_hash($password, PASSWORD_BCRYPT);
@@ -82,6 +103,7 @@ if ($stmt->fetch()) {
       'role' => $role,
       'department' => $department,
       'position' => $position,
+      'terms_accepted' => true,
     ]);
   } else {
     http_response_code(401);

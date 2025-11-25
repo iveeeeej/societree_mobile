@@ -16,13 +16,14 @@ class ApiService {
   Future<Map<String, dynamic>> login({
     required String studentId,
     required String password,
+    bool acceptTerms = false,
   }) async {
     final uri = Uri.parse('$baseUrl/login.php');
     final res = await http
         .post(
           uri,
           headers: _jsonHeaders,
-          body: jsonEncode({'student_id': studentId, 'password': password}),
+          body: jsonEncode({'student_id': studentId, 'password': password, 'accept_terms': acceptTerms}),
         )
         .timeout(_timeout);
     return _decode(res);

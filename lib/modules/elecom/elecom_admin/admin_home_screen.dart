@@ -18,6 +18,43 @@ class AdminHomeScreen extends StatelessWidget {
         title: const Text('Home'),
         actions: [
           IconButton(
+            tooltip: 'Terms & Conditions',
+            icon: const Icon(Icons.help_outline),
+            onPressed: () {
+              showDialog<void>(
+                context: context,
+                builder: (ctx) {
+                  return AlertDialog(
+                    title: const Text('SocieTree Terms & Conditions'),
+                    content: SingleChildScrollView(
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: const [
+                          Text('By using the SocieTree platform, you agree to:'),
+                          SizedBox(height: 8),
+                          Text('• Use your own account and keep your credentials confidential.'),
+                          Text('• Provide accurate information in your profile and submissions.'),
+                          Text('• Allow SocieTree to process and store your submitted data to deliver app features and improve the service.'),
+                          Text('• Use the platform responsibly (no abuse, harassment, or attempts to disrupt the service).'),
+                          Text('• Follow your institution’s policies and applicable laws.'),
+                          SizedBox(height: 12),
+                          Text('Privacy & Data:'),
+                          Text('SocieTree stores necessary data (e.g., account info and activity you submit) in order to operate. Your data is handled with care and used only for platform functionality and improvements.'),
+                          SizedBox(height: 12),
+                          Text('Changes:'),
+                          Text('These Terms may be updated from time to time. Continued use of SocieTree signifies acceptance of the latest version.'),
+                        ],
+                      ),
+                    ),
+                    actions: [
+                      TextButton(onPressed: () => Navigator.pop(ctx), child: const Text('CLOSE')),
+                    ],
+                  );
+                },
+              );
+            },
+          ),
+          IconButton(
             tooltip: 'Logout',
             icon: const Icon(Icons.logout),
             onPressed: () async {

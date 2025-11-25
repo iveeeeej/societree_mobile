@@ -70,6 +70,7 @@ function db_connect() {
       email VARCHAR(255) NULL,
       otp_code VARCHAR(16) NULL,
       otp_expires_at DATETIME NULL,
+      terms_accepted_at DATETIME NULL,
       created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
     ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4";
   if (!$mysqli->query($create)) {
@@ -150,6 +151,9 @@ function db_connect() {
   }
   if (!$hasColumn($mysqli, 'users', 'otp_expires_at')) {
     @$mysqli->query("ALTER TABLE users ADD COLUMN otp_expires_at DATETIME NULL");
+  }
+  if (!$hasColumn($mysqli, 'users', 'terms_accepted_at')) {
+    @$mysqli->query("ALTER TABLE users ADD COLUMN terms_accepted_at DATETIME NULL");
   }
 
   // Ensure candidates_registration has votes tally column

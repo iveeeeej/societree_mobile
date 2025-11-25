@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'dart:ui';
 import 'package:flutter/services.dart';
 import 'societree/societree_dashboard.dart';
 import '../services/api_service.dart';
@@ -21,6 +22,7 @@ class _LoginScreenState extends State<LoginScreen> {
   final _formKey = GlobalKey<FormState>();
   bool _loading = false;
   bool _obscure = true;
+  bool _acceptTerms = false;
 
   late final ApiService _api;
 
@@ -36,18 +38,21 @@ class _LoginScreenState extends State<LoginScreen> {
     final ok1 = await showDialog<bool>(
       context: context,
       builder: (ctx) {
-        return AlertDialog(
-          title: const Text('Request OTP'),
-          content: TextField(
-            controller: idCtrl,
-            decoration: const InputDecoration(hintText: 'Enter your student ID'),
-            keyboardType: TextInputType.number,
-            inputFormatters: [FilteringTextInputFormatter.digitsOnly],
+        return BackdropFilter(
+          filter: ImageFilter.blur(sigmaX: 6, sigmaY: 6),
+          child: AlertDialog(
+            title: const Text('Request OTP'),
+            content: TextField(
+              controller: idCtrl,
+              decoration: const InputDecoration(hintText: 'Enter your student ID'),
+              keyboardType: TextInputType.number,
+              inputFormatters: [FilteringTextInputFormatter.digitsOnly],
+            ),
+            actions: [
+              TextButton(onPressed: () => Navigator.pop(ctx, false), child: const Text('CANCEL')),
+              ElevatedButton(onPressed: () => Navigator.pop(ctx, true), child: const Text('SEND')),
+            ],
           ),
-          actions: [
-            TextButton(onPressed: () => Navigator.pop(ctx, false), child: const Text('CANCEL')),
-            ElevatedButton(onPressed: () => Navigator.pop(ctx, true), child: const Text('SEND')),
-          ],
         );
       },
     );
@@ -80,29 +85,32 @@ class _LoginScreenState extends State<LoginScreen> {
     final ok2 = await showDialog<bool>(
       context: context,
       builder: (ctx) {
-        return AlertDialog(
-          title: const Text('Reset Password'),
-          content: Column(
-            mainAxisSize: MainAxisSize.min,
-            children: [
-              TextField(
-                controller: otpCtrl,
-                decoration: const InputDecoration(hintText: 'Enter 6-digit OTP'),
-                keyboardType: TextInputType.number,
-                inputFormatters: [FilteringTextInputFormatter.digitsOnly],
-              ),
-              const SizedBox(height: 12),
-              TextField(
-                controller: passCtrl,
-                decoration: const InputDecoration(hintText: 'New password'),
-                obscureText: true,
-              ),
+        return BackdropFilter(
+          filter: ImageFilter.blur(sigmaX: 6, sigmaY: 6),
+          child: AlertDialog(
+            title: const Text('Reset Password'),
+            content: Column(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                TextField(
+                  controller: otpCtrl,
+                  decoration: const InputDecoration(hintText: 'Enter 6-digit OTP'),
+                  keyboardType: TextInputType.number,
+                  inputFormatters: [FilteringTextInputFormatter.digitsOnly],
+                ),
+                const SizedBox(height: 12),
+                TextField(
+                  controller: passCtrl,
+                  decoration: const InputDecoration(hintText: 'New password'),
+                  obscureText: true,
+                ),
+              ],
+            ),
+            actions: [
+              TextButton(onPressed: () => Navigator.pop(ctx, false), child: const Text('CANCEL')),
+              ElevatedButton(onPressed: () => Navigator.pop(ctx, true), child: const Text('RESET')),
             ],
           ),
-          actions: [
-            TextButton(onPressed: () => Navigator.pop(ctx, false), child: const Text('CANCEL')),
-            ElevatedButton(onPressed: () => Navigator.pop(ctx, true), child: const Text('RESET')),
-          ],
         );
       },
     );
@@ -135,6 +143,10 @@ class _LoginScreenState extends State<LoginScreen> {
 
   Future<void> _handleAuth(bool isLogin) async {
     if (!_formKey.currentState!.validate()) return;
+    if (isLogin && !_acceptTerms) {
+      ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Please read and accept the Terms & Conditions')));
+      return;
+    }
     setState(() {
       _loading = true;
     });
@@ -142,7 +154,7 @@ class _LoginScreenState extends State<LoginScreen> {
       final studentId = _emailCtrl.text.trim();
       final password = _passwordCtrl.text;
       final res = isLogin
-          ? await _api.login(studentId: studentId, password: password)
+          ? await _api.login(studentId: studentId, password: password, acceptTerms: _acceptTerms)
           : await _api.register(studentId: studentId, password: password);
       final success = res['success'] == true;
       String msg = (res['message'] ?? (success ? 'Success' : 'Failed')).toString();
@@ -184,15 +196,60 @@ class _LoginScreenState extends State<LoginScreen> {
     }
   }
 
+  Future<void> _showTermsDialog() async {
+    await showDialog<void>(
+      context: context,
+      builder: (ctx) {
+        return BackdropFilter(
+          filter: ImageFilter.blur(sigmaX: 6, sigmaY: 6),
+          child: AlertDialog(
+          title: const Text('SocieTree Terms & Conditions'),
+          content: SingleChildScrollView(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: const [
+                Text('By using the SocieTree platform, you agree to:'),
+                SizedBox(height: 8),
+                Text('• Use your own account and keep your credentials confidential.'),
+                Text('• Provide accurate information in your profile and submissions.'),
+                Text('• Allow SocieTree to process and store your submitted data to deliver app features and improve the service.'),
+                Text('• Use the platform responsibly (no abuse, harassment, or attempts to disrupt the service).'),
+                Text('• Follow your institution’s policies and applicable laws.'),
+                SizedBox(height: 12),
+                Text('Privacy & Data:'),
+                Text('SocieTree stores necessary data (e.g., account info and activity you submit) in order to operate. Your data is handled with care and used only for platform functionality and improvements.'),
+                SizedBox(height: 12),
+                Text('Changes:'),
+                Text('These Terms may be updated from time to time. Continued use of SocieTree signifies acceptance of the latest version.'),
+              ],
+            ),
+          ),
+          actions: [
+            TextButton(onPressed: () => Navigator.pop(ctx), child: const Text('CLOSE')),
+            ElevatedButton(
+              onPressed: () {
+                setState(() => _acceptTerms = true);
+                Navigator.pop(ctx);
+              },
+              child: const Text('I ACCEPT'),
+            ),
+          ],
+          ),
+        );
+      },
+    );
+  }
+
   @override
   Widget build(BuildContext context) {
     return Scaffold(
+      backgroundColor: const Color(0xFFF6F7FB),
       body: Center(
         child: SingleChildScrollView(
           child: ConstrainedBox(
             constraints: const BoxConstraints(maxWidth: 420),
             child: Padding(
-              padding: const EdgeInsets.all(20.0),
+              padding: const EdgeInsets.all(16.0),
               child: Container(
                 padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 24),
                 decoration: BoxDecoration(
@@ -312,12 +369,41 @@ class _LoginScreenState extends State<LoginScreen> {
                               : const Text('LOGIN'),
                         ),
                       ),
-                      const SizedBox(height: 12),
-                      Align(
-                        alignment: Alignment.centerRight,
+                      const SizedBox(height: 8),
+                      Center(
+                        child: Wrap(
+                          crossAxisAlignment: WrapCrossAlignment.center,
+                          spacing: 4,
+                          runSpacing: 0,
+                          alignment: WrapAlignment.center,
+                          children: [
+                            SizedBox(
+                              height: 20,
+                              width: 20,
+                              child: Checkbox(
+                                value: _acceptTerms,
+                                onChanged: _loading ? null : (v) => setState(() => _acceptTerms = v ?? false),
+                                materialTapTargetSize: MaterialTapTargetSize.shrinkWrap,
+                              ),
+                            ),
+                            Text('I accept the', style: Theme.of(context).textTheme.bodySmall),
+                            TextButton(
+                              onPressed: _loading ? null : _showTermsDialog,
+                              style: TextButton.styleFrom(padding: EdgeInsets.zero),
+                              child: const Text('Terms & Conditions'),
+                            ),
+                          ],
+                        ),
+                      ),
+                      const SizedBox(height: 8),
+                      Center(
                         child: TextButton(
                           onPressed: _loading ? null : _forgotPassword,
-                          child: const Text('FORGOT PASSWORD?'),
+                          style: TextButton.styleFrom(padding: EdgeInsets.zero),
+                          child: Text(
+                            'FORGOT PASSWORD?',
+                            style: Theme.of(context).textTheme.bodySmall?.copyWith(color: const Color(0xFF6A6FCF), fontWeight: FontWeight.w600),
+                          ),
                         ),
                       ),
                     ],
