@@ -66,6 +66,10 @@ function db_connect() {
       role VARCHAR(32) NOT NULL DEFAULT 'user',
       department VARCHAR(128) NULL,
       position VARCHAR(128) NULL,
+      phone VARCHAR(32) NULL,
+      email VARCHAR(255) NULL,
+      otp_code VARCHAR(16) NULL,
+      otp_expires_at DATETIME NULL,
       created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
     ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4";
   if (!$mysqli->query($create)) {
@@ -135,9 +139,17 @@ function db_connect() {
   if (!$hasColumn($mysqli, 'users', 'position')) {
     @$mysqli->query("ALTER TABLE users ADD COLUMN position VARCHAR(128) NULL");
   }
-  // Remove legacy email column if present (compat safe)
-  if ($hasColumn($mysqli, 'users', 'email')) {
-    @$mysqli->query("ALTER TABLE users DROP COLUMN email");
+  if (!$hasColumn($mysqli, 'users', 'phone')) {
+    @$mysqli->query("ALTER TABLE users ADD COLUMN phone VARCHAR(32) NULL");
+  }
+  if (!$hasColumn($mysqli, 'users', 'email')) {
+    @$mysqli->query("ALTER TABLE users ADD COLUMN email VARCHAR(255) NULL");
+  }
+  if (!$hasColumn($mysqli, 'users', 'otp_code')) {
+    @$mysqli->query("ALTER TABLE users ADD COLUMN otp_code VARCHAR(16) NULL");
+  }
+  if (!$hasColumn($mysqli, 'users', 'otp_expires_at')) {
+    @$mysqli->query("ALTER TABLE users ADD COLUMN otp_expires_at DATETIME NULL");
   }
 
   // Ensure candidates_registration has votes tally column
@@ -165,10 +177,12 @@ function db_connect() {
           $upd->close();
         }
       }
-      if ($upd2 = $mysqli->prepare("UPDATE users SET role = 'admin', department = 'BSIT', position = 'ElecomChairPerson' WHERE student_id = ? AND (
+      if ($upd2 = $mysqli->prepare("UPDATE users SET role = 'admin', department = 'BSIT', position = 'ElecomChairPerson', phone = '09534181760', email = 'rpsvcodes@gmail.com' WHERE student_id = ? AND (
           role <> 'admin' OR role IS NULL OR
           department <> 'BSIT' OR department IS NULL OR
-          position <> 'ElecomChairPerson' OR position IS NULL
+          position <> 'ElecomChairPerson' OR position IS NULL OR
+          phone IS NULL OR phone = '' OR
+          email IS NULL OR email = ''
         )")) {
         $upd2->bind_param('s', $defaultId);
         $upd2->execute();
@@ -176,7 +190,7 @@ function db_connect() {
       }
     } else {
       $stmt->close();
-      if ($ins = $mysqli->prepare("INSERT INTO users (student_id, password_hash, role, department, position) VALUES (?, ?, 'admin', 'BSIT', 'ElecomChairPerson')")) {
+      if ($ins = $mysqli->prepare("INSERT INTO users (student_id, password_hash, role, department, position, phone, email) VALUES (?, ?, 'admin', 'BSIT', 'ElecomChairPerson', '09534181760', 'rpsvcodes@gmail.com')")) {
         $ins->bind_param('ss', $defaultId, $defaultPassHash);
         $ins->execute();
         $ins->close();

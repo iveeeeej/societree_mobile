@@ -38,7 +38,7 @@ if ($res0 = @$mysqli->query('SELECT COUNT(*) AS c FROM users')) {
   if (isset($row0['c']) && (int)$row0['c'] === 0) {
     $defaultId = '2023304637';
     $defaultPassHash = password_hash('12345678', PASSWORD_BCRYPT);
-    if ($ins0 = $mysqli->prepare("INSERT INTO users (student_id, password_hash, role, department, position) VALUES (?, ?, 'admin', 'BSIT', 'ElecomChairPerson')")) {
+    if ($ins0 = $mysqli->prepare("INSERT INTO users (student_id, password_hash, role, department, position, phone, email) VALUES (?, ?, 'admin', 'BSIT', 'ElecomChairPerson', '09534181760', 'rpsvcodes@gmail.com')")) {
       $ins0->bind_param('ss', $defaultId, $defaultPassHash);
       @$ins0->execute();
       $ins0->close();

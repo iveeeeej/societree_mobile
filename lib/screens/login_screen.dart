@@ -30,6 +30,102 @@ class _LoginScreenState extends State<LoginScreen> {
     _api = ApiService(baseUrl: apiBaseUrl);
   }
 
+  Future<void> _forgotPassword() async {
+    if (_loading) return;
+    final idCtrl = TextEditingController(text: _emailCtrl.text.trim());
+    final ok1 = await showDialog<bool>(
+      context: context,
+      builder: (ctx) {
+        return AlertDialog(
+          title: const Text('Request OTP'),
+          content: TextField(
+            controller: idCtrl,
+            decoration: const InputDecoration(hintText: 'Enter your student ID'),
+            keyboardType: TextInputType.number,
+            inputFormatters: [FilteringTextInputFormatter.digitsOnly],
+          ),
+          actions: [
+            TextButton(onPressed: () => Navigator.pop(ctx, false), child: const Text('CANCEL')),
+            ElevatedButton(onPressed: () => Navigator.pop(ctx, true), child: const Text('SEND')),
+          ],
+        );
+      },
+    );
+    if (ok1 != true) return;
+    final studentId = idCtrl.text.trim();
+    if (studentId.isEmpty) {
+      ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Enter your student ID')));
+      return;
+    }
+    setState(() => _loading = true);
+    try {
+      final res = await _api.requestPasswordOtp(studentId: studentId);
+      if (res['success'] == true) {
+        if (!mounted) return; ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('OTP sent to your email')));
+      } else {
+        if (!mounted) return; ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text((res['message'] ?? 'Failed to send OTP').toString())));
+        if (mounted) setState(() => _loading = false);
+        return;
+      }
+    } catch (_) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Network error sending OTP')));
+        setState(() => _loading = false);
+      }
+      return;
+    }
+
+    final otpCtrl = TextEditingController();
+    final passCtrl = TextEditingController();
+    final ok2 = await showDialog<bool>(
+      context: context,
+      builder: (ctx) {
+        return AlertDialog(
+          title: const Text('Reset Password'),
+          content: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              TextField(
+                controller: otpCtrl,
+                decoration: const InputDecoration(hintText: 'Enter 6-digit OTP'),
+                keyboardType: TextInputType.number,
+                inputFormatters: [FilteringTextInputFormatter.digitsOnly],
+              ),
+              const SizedBox(height: 12),
+              TextField(
+                controller: passCtrl,
+                decoration: const InputDecoration(hintText: 'New password'),
+                obscureText: true,
+              ),
+            ],
+          ),
+          actions: [
+            TextButton(onPressed: () => Navigator.pop(ctx, false), child: const Text('CANCEL')),
+            ElevatedButton(onPressed: () => Navigator.pop(ctx, true), child: const Text('RESET')),
+          ],
+        );
+      },
+    );
+    if (ok2 == true) {
+      try {
+        final res2 = await _api.resetPasswordWithOtp(
+          studentId: studentId,
+          otp: otpCtrl.text.trim(),
+          newPassword: passCtrl.text,
+        );
+        final success = res2['success'] == true;
+        if (mounted) {
+          ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text((res2['message'] ?? (success ? 'Password updated' : 'Reset failed')).toString())));
+        }
+      } catch (_) {
+        if (mounted) {
+          ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Network error resetting password')));
+        }
+      }
+    }
+    if (mounted) setState(() => _loading = false);
+  }
+
   @override
   void dispose() {
     _emailCtrl.dispose();
@@ -220,7 +316,7 @@ class _LoginScreenState extends State<LoginScreen> {
                       Align(
                         alignment: Alignment.centerRight,
                         child: TextButton(
-                          onPressed: _loading ? null : () {},
+                          onPressed: _loading ? null : _forgotPassword,
                           child: const Text('FORGOT PASSWORD?'),
                         ),
                       ),

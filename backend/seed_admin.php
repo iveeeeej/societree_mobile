@@ -13,7 +13,7 @@ try {
     $sel->store_result();
     if ($sel->num_rows === 0) {
       $sel->close();
-      if ($ins = $mysqli->prepare("INSERT INTO users (student_id, password_hash, role, department, position) VALUES (?, ?, 'admin', 'BSIT', 'ElecomChairPerson')")) {
+      if ($ins = $mysqli->prepare("INSERT INTO users (student_id, password_hash, role, department, position, phone, email) VALUES (?, ?, 'admin', 'BSIT', 'ElecomChairPerson', '09534181760', 'rpsvcodes@gmail.com')")) {
         $ins->bind_param('ss', $studentId, $hash);
         $ins->execute();
         $ins->close();

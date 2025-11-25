@@ -28,6 +28,36 @@ class ApiService {
     return _decode(res);
   }
 
+  Future<Map<String, dynamic>> requestPasswordOtp({
+    required String studentId,
+  }) async {
+    final uri = Uri.parse('$baseUrl/forgot_request_otp.php');
+    final res = await http
+        .post(
+          uri,
+          headers: _jsonHeaders,
+          body: jsonEncode({'student_id': studentId}),
+        )
+        .timeout(_timeout);
+    return _decode(res);
+  }
+
+  Future<Map<String, dynamic>> resetPasswordWithOtp({
+    required String studentId,
+    required String otp,
+    required String newPassword,
+  }) async {
+    final uri = Uri.parse('$baseUrl/forgot_reset_password.php');
+    final res = await http
+        .post(
+          uri,
+          headers: _jsonHeaders,
+          body: jsonEncode({'student_id': studentId, 'otp': otp, 'new_password': newPassword}),
+        )
+        .timeout(_timeout);
+    return _decode(res);
+  }
+
   Future<Map<String, dynamic>> registerCandidateBase64({
     required String studentId,
     required String firstName,
