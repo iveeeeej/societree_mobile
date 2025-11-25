@@ -37,6 +37,7 @@ class _LoginScreenState extends State<LoginScreen> {
     final idCtrl = TextEditingController(text: _emailCtrl.text.trim());
     String channel = 'email';
     final phoneCtrl = TextEditingController();
+    final emailCtrl = TextEditingController();
     final ok1 = await showDialog<bool>(
       context: context,
       builder: (ctx) {
@@ -44,54 +45,88 @@ class _LoginScreenState extends State<LoginScreen> {
           filter: ImageFilter.blur(sigmaX: 6, sigmaY: 6),
           child: StatefulBuilder(
             builder: (ctx, setState) => AlertDialog(
+              shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
               title: const Text('Request OTP'),
-              content: Column(
-                mainAxisSize: MainAxisSize.min,
-                children: [
-                  TextField(
-                    controller: idCtrl,
-                    decoration: const InputDecoration(hintText: 'Enter your student ID'),
-                    keyboardType: TextInputType.number,
-                    inputFormatters: [FilteringTextInputFormatter.digitsOnly],
-                  ),
-                  const SizedBox(height: 8),
-                  Row(
-                    children: [
-                      Expanded(
-                        child: RadioListTile<String>(
-                          dense: true,
-                          visualDensity: VisualDensity.compact,
-                          title: const Text('Email'),
-                          value: 'email',
-                          groupValue: channel,
-                          onChanged: (v) => setState(() => channel = v ?? 'email'),
-                        ),
+              content: SingleChildScrollView(
+                child: Column(
+                  mainAxisSize: MainAxisSize.min,
+                  crossAxisAlignment: CrossAxisAlignment.stretch,
+                  children: [
+                    TextField(
+                      controller: idCtrl,
+                      decoration: const InputDecoration(
+                        labelText: 'Student ID',
+                        hintText: 'Enter your student ID',
+                        prefixIcon: Icon(Icons.badge_outlined),
                       ),
-                      Expanded(
-                        child: RadioListTile<String>(
-                          dense: true,
-                          visualDensity: VisualDensity.compact,
-                          title: const Text('SMS'),
-                          value: 'sms',
-                          groupValue: channel,
-                          onChanged: (v) => setState(() => channel = v ?? 'email'),
+                      keyboardType: TextInputType.number,
+                      inputFormatters: [FilteringTextInputFormatter.digitsOnly],
+                    ),
+                    const SizedBox(height: 12),
+                    const Text('Send via'),
+                    const SizedBox(height: 6),
+                    Wrap(
+                      spacing: 8,
+                      children: [
+                        ChoiceChip(
+                          label: const Text('Email'),
+                          selected: channel == 'email',
+                          onSelected: (_) => setState(() => channel = 'email'),
                         ),
+                        ChoiceChip(
+                          label: const Text('SMS'),
+                          selected: channel == 'sms',
+                          onSelected: (_) => setState(() => channel = 'sms'),
+                        ),
+                      ],
+                    ),
+                    const SizedBox(height: 8),
+                    if (channel == 'sms') ...[
+                      TextField(
+                        controller: phoneCtrl,
+                        decoration: const InputDecoration(
+                          labelText: 'Phone number',
+                          hintText: '09XXXXXXXXX',
+                          prefixIcon: Icon(Icons.phone_outlined),
+                        ),
+                        keyboardType: TextInputType.phone,
+                      ),
+                      const SizedBox(height: 6),
+                      const Text('Make sure this matches your registered number.', style: TextStyle(fontSize: 12)),
+                    ] else ...[
+                      TextField(
+                        controller: emailCtrl,
+                        decoration: const InputDecoration(
+                          labelText: 'Email (optional)',
+                          hintText: 'Leave blank to use your registered email',
+                          prefixIcon: Icon(Icons.email_outlined),
+                        ),
+                        keyboardType: TextInputType.emailAddress,
                       ),
                     ],
-                  ),
-                  if (channel == 'sms') ...[
-                    const SizedBox(height: 4),
-                    TextField(
-                      controller: phoneCtrl,
-                      decoration: const InputDecoration(hintText: 'Phone number (e.g., 09XXXXXXXXX)'),
-                      keyboardType: TextInputType.phone,
-                    ),
                   ],
-                ],
+                ),
               ),
               actions: [
                 TextButton(onPressed: () => Navigator.pop(ctx, false), child: const Text('CANCEL')),
-                ElevatedButton(onPressed: () => Navigator.pop(ctx, true), child: const Text('SEND')),
+                ElevatedButton(
+                  onPressed: () {
+                    final id = idCtrl.text.trim();
+                    if (id.isEmpty) {
+                      ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Enter your student ID')));
+                      return;
+                    }
+                    if (channel == 'sms') {
+                      final p = phoneCtrl.text.trim();
+                      if (p.isEmpty || p.length < 10) {
+                        ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Enter a valid phone number')));
+                        return;
+                      }
+                    }
+                    Navigator.pop(ctx, true);
+                  },
+                  child: const Text('SEND'),
+                ),
               ],
             ),
           ),
@@ -100,19 +135,19 @@ class _LoginScreenState extends State<LoginScreen> {
     );
     if (ok1 != true) return;
     final studentId = idCtrl.text.trim();
-    if (studentId.isEmpty) {
-      ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Enter your student ID')));
-      return;
-    }
     setState(() => _loading = true);
     try {
       final res = await _api.requestPasswordOtp(
         studentId: studentId,
         method: channel,
         phone: channel == 'sms' ? phoneCtrl.text.trim() : null,
+        email: channel == 'email' && emailCtrl.text.trim().isNotEmpty ? emailCtrl.text.trim() : null,
       );
       if (res['success'] == true) {
-        if (!mounted) return; ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('OTP sent to your email')));
+        if (!mounted) return;
+        final to = (res['to'] ?? '').toString();
+        final via = channel.toUpperCase();
+        ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text('OTP sent via $via${to.isNotEmpty ? ' to $to' : ''}')));
       } else {
         if (!mounted) return; ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text((res['message'] ?? 'Failed to send OTP').toString())));
         if (mounted) setState(() => _loading = false);

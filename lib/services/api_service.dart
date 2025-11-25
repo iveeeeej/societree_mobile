@@ -33,12 +33,14 @@ class ApiService {
     required String studentId,
     String method = 'email',
     String? phone,
+    String? email,
   }) async {
     final uri = Uri.parse('$baseUrl/forgot_request_otp.php');
     final payload = {
       'student_id': studentId,
       'method': method,
       if (phone != null && phone.isNotEmpty) 'phone': phone,
+      if (email != null && email.isNotEmpty) 'email': email,
     };
     final res = await http
         .post(

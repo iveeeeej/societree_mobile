@@ -106,6 +106,30 @@ if ($student_id !== '') {
     $sel->close();
     if (!$found) { $uid = null; }
   }
+  // If user also supplied an override contact, it must match the record of this student
+  if ($uid !== null) {
+    if ($method === 'sms' && $phoneOverride !== '') {
+      $prov = normalize_phone($phoneOverride);
+      $dbn = normalize_phone((string)$dbPhone);
+      $alt = ($dbn && strpos($dbn, '+63') === 0) ? ('0' . substr($dbn, 3)) : (string)$dbPhone;
+      if (!in_array($prov, [$dbn, $alt, (string)$dbPhone], true)) {
+        http_response_code(422);
+        echo json_encode(['success'=>false,'message'=>'Phone number does not match the student ID on record']);
+        $mysqli->close();
+        exit();
+      }
+    }
+    if ($method !== 'sms' && $emailOverride !== '') {
+      $provE = strtolower(trim($emailOverride));
+      $dbE = strtolower(trim((string)$email));
+      if ($provE !== $dbE) {
+        http_response_code(422);
+        echo json_encode(['success'=>false,'message'=>'Email does not match the student ID on record']);
+        $mysqli->close();
+        exit();
+      }
+    }
+  }
 } elseif ($method === 'sms' && $phoneOverride !== '') {
   $lookup = 'phone';
   $p1 = $phoneOverride;
