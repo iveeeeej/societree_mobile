@@ -1,5 +1,5 @@
 import 'package:flutter/material.dart';
-import 'package:centralized_societree/screens/student_dashboard.dart';
+import 'package:centralized_societree/modules/elecom/student_dashboard/student_dashboard.dart';
 
 class ElecomDashboard extends StatelessWidget {
   const ElecomDashboard({super.key});

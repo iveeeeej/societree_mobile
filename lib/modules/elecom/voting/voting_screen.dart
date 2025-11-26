@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'dart:ui' show ImageFilter;
 import 'package:centralized_societree/main.dart';
 import 'package:centralized_societree/services/user_session.dart';
 import 'package:centralized_societree/modules/elecom/student_dashboard/services/student_dashboard_service.dart';
@@ -119,46 +120,77 @@ class _VotingScreenState extends State<VotingScreen> {
 
   Future<void> _submit() async {
     if (_selections.isEmpty) return;
-    final proceed = await showDialog<bool>(
+    final proceed = await showGeneralDialog<bool>(
       context: context,
-      builder: (ctx) {
-        return AlertDialog(
-          title: const Text('Confirm your vote'),
-          content: SizedBox(
-            width: double.maxFinite,
-            child: Column(
-              mainAxisSize: MainAxisSize.min,
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                const Text('Please review your selections:'),
-                const SizedBox(height: 8),
-                ..._selections.entries.map((e) {
-                  final posKey = e.key;
-                  final cid = e.value;
-                  Map<String, dynamic> cand = const {};
-                  for (final c in _candidates) {
-                    final id = (c['id'] ?? '').toString();
-                    if (id == cid) { cand = c; break; }
-                  }
-                  final name = (cand['name'] ?? '').toString();
-                  final org = (cand['organization'] ?? '').toString();
-                  final parts = posKey.split('::');
-                  final prettyPos = parts.length == 2 ? '${parts[0]} — ${parts[1]}' : posKey;
-                  return ListTile(
-                    dense: true,
-                    contentPadding: EdgeInsets.zero,
-                    title: Text(prettyPos),
-                    subtitle: Text([name, if (org.isNotEmpty) '($org)'].join(' ')),
-                  );
-                }).toList(),
-              ],
+      barrierDismissible: true,
+      barrierLabel: 'Close',
+      barrierColor: Colors.black.withOpacity(0.2),
+      transitionDuration: const Duration(milliseconds: 180),
+      pageBuilder: (ctx, a1, a2) {
+        final shouldUseDark = themeNotifier.isDarkMode;
+        final dashboardTheme = shouldUseDark
+            ? ThemeData(
+                colorScheme: ColorScheme.fromSeed(
+                  seedColor: Colors.deepPurple,
+                  brightness: Brightness.dark,
+                ),
+                useMaterial3: true,
+              )
+            : Theme.of(ctx);
+        return BackdropFilter(
+          filter: ImageFilter.blur(sigmaX: 8, sigmaY: 8),
+          child: Center(
+            child: Theme(
+              data: dashboardTheme,
+              child: ConstrainedBox(
+                constraints: const BoxConstraints(maxWidth: 520),
+                child: Material(
+                  color: Colors.transparent,
+                  child: AlertDialog(
+                    title: const Text('Confirm your vote'),
+                    content: SizedBox(
+                      width: double.maxFinite,
+                      child: Column(
+                        mainAxisSize: MainAxisSize.min,
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          const Text('Please review your selections:'),
+                          const SizedBox(height: 8),
+                          ..._selections.entries.map((e) {
+                            final posKey = e.key;
+                            final cid = e.value;
+                            Map<String, dynamic> cand = const {};
+                            for (final c in _candidates) {
+                              final id = (c['id'] ?? '').toString();
+                              if (id == cid) { cand = c; break; }
+                            }
+                            final name = (cand['name'] ?? '').toString();
+                            final org = (cand['organization'] ?? '').toString();
+                            final parts = posKey.split('::');
+                            final prettyPos = parts.length == 2 ? '${parts[0]} — ${parts[1]}' : posKey;
+                            return ListTile(
+                              dense: true,
+                              contentPadding: EdgeInsets.zero,
+                              title: Text(prettyPos),
+                              subtitle: Text([name, if (org.isNotEmpty) '($org)'].join(' ')),
+                            );
+                          }).toList(),
+                        ],
+                      ),
+                    ),
+                    actions: [
+                      TextButton(onPressed: () => Navigator.of(ctx).pop(false), child: const Text('Cancel')),
+                      FilledButton(onPressed: () => Navigator.of(ctx).pop(true), child: const Text('Submit')),
+                    ],
+                  ),
+                ),
+              ),
             ),
           ),
-          actions: [
-            TextButton(onPressed: () => Navigator.of(ctx).pop(false), child: const Text('Cancel')),
-            FilledButton(onPressed: () => Navigator.of(ctx).pop(true), child: const Text('Submit')),
-          ],
         );
+      },
+      transitionBuilder: (ctx, anim, _, child) {
+        return FadeTransition(opacity: anim, child: child);
       },
     );
     if (proceed != true) return;
@@ -320,12 +352,26 @@ class _VotingScreenState extends State<VotingScreen> {
                                             child: Column(
                                               crossAxisAlignment: CrossAxisAlignment.start,
                                               children: [
-                                                Text(
-                                                  pos,
-                                                  style: theme.textTheme.titleMedium?.copyWith(
-                                                    fontWeight: FontWeight.w700,
-                                                    color: isDark ? Colors.white : null,
-                                                  ),
+                                                Row(
+                                                  children: [
+                                                    Expanded(
+                                                      child: Text(
+                                                        pos,
+                                                        style: theme.textTheme.titleMedium?.copyWith(
+                                                          fontWeight: FontWeight.w700,
+                                                          color: isDark ? Colors.white : null,
+                                                        ),
+                                                      ),
+                                                    ),
+                                                    if ((selected ?? '').isNotEmpty)
+                                                      TextButton.icon(
+                                                        onPressed: () => setState(() {
+                                                          _selections.remove(posKey);
+                                                        }),
+                                                        icon: const Icon(Icons.clear, size: 18),
+                                                        label: const Text('Clear'),
+                                                      ),
+                                                  ],
                                                 ),
                                                 const SizedBox(height: 8),
                                                 ...opts.map((c) {
@@ -368,7 +414,13 @@ class _VotingScreenState extends State<VotingScreen> {
                                                     trailing: isSel
                                                         ? const Icon(Icons.radio_button_checked, color: Color(0xFF6E63F6))
                                                         : const Icon(Icons.radio_button_off),
-                                                    onTap: () => setState(() => _selections[posKey] = id),
+                                                    onTap: () => setState(() {
+                                                      if (_selections[posKey] == id) {
+                                                        _selections.remove(posKey); // unselect
+                                                      } else {
+                                                        _selections[posKey] = id; // select
+                                                      }
+                                                    }),
                                                   );
                                                 }).toList(),
                                               ],
