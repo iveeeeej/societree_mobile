@@ -1,0 +1,11 @@
+{
+	"folders": [
+		{
+			"path": ".."
+		},
+		{
+			"path": "../../PHPMailer-IAS/VISITACION/phpmailer"
+		}
+	],
+	"settings": {}
+}

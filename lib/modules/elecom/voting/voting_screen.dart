@@ -156,25 +156,43 @@ class _VotingScreenState extends State<VotingScreen> {
                         children: [
                           const Text('Please review your selections:'),
                           const SizedBox(height: 8),
-                          ..._selections.entries.map((e) {
-                            final posKey = e.key;
-                            final cid = e.value;
-                            Map<String, dynamic> cand = const {};
-                            for (final c in _candidates) {
-                              final id = (c['id'] ?? '').toString();
-                              if (id == cid) { cand = c; break; }
-                            }
-                            final name = (cand['name'] ?? '').toString();
-                            final org = (cand['organization'] ?? '').toString();
-                            final parts = posKey.split('::');
-                            final prettyPos = parts.length == 2 ? '${parts[0]} — ${parts[1]}' : posKey;
-                            return ListTile(
-                              dense: true,
-                              contentPadding: EdgeInsets.zero,
-                              title: Text(prettyPos),
-                              subtitle: Text([name, if (org.isNotEmpty) '($org)'].join(' ')),
-                            );
-                          }).toList(),
+                          ConstrainedBox(
+                            constraints: const BoxConstraints(maxHeight: 420),
+                            child: Scrollbar(
+                              thumbVisibility: true,
+                              child: ListView.separated(
+                                shrinkWrap: true,
+                                itemCount: (() {
+                                  final entries = _selections.entries.toList()
+                                    ..sort((a, b) => a.key.toLowerCase().compareTo(b.key.toLowerCase()));
+                                  return entries.length;
+                                })(),
+                                separatorBuilder: (_, __) => const Divider(height: 1),
+                                itemBuilder: (_, i) {
+                                  final entries = _selections.entries.toList()
+                                    ..sort((a, b) => a.key.toLowerCase().compareTo(b.key.toLowerCase()));
+                                  final e = entries[i];
+                                  final posKey = e.key;
+                                  final cid = e.value;
+                                  Map<String, dynamic> cand = const {};
+                                  for (final c in _candidates) {
+                                    final id = (c['id'] ?? '').toString();
+                                    if (id == cid) { cand = c; break; }
+                                  }
+                                  final name = (cand['name'] ?? '').toString();
+                                  final org = (cand['organization'] ?? '').toString();
+                                  final parts = posKey.split('::');
+                                  final prettyPos = parts.length == 2 ? '${parts[0]} — ${parts[1]}' : posKey;
+                                  return ListTile(
+                                    dense: true,
+                                    contentPadding: EdgeInsets.zero,
+                                    title: Text(prettyPos, style: Theme.of(ctx).textTheme.bodyLarge?.copyWith(fontWeight: FontWeight.w600)),
+                                    subtitle: Text([name, if (org.isNotEmpty) '($org)'].join(' ')),
+                                  );
+                                },
+                              ),
+                            ),
+                          ),
                         ],
                       ),
                     ),
