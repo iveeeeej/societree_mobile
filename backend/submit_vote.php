@@ -76,6 +76,18 @@ try {
     if ($stmt->fetch()) {
       $stmt->close();
       $mysqli->rollback();
+      // Try to return latest receipt if available to help client proceed
+      if ($q = $mysqli->prepare("SELECT receipt_id FROM vote_receipts WHERE student_id = ? ORDER BY created_at DESC, id DESC LIMIT 1")) {
+        $q->bind_param('s', $student_id);
+        if ($q->execute()) {
+          $q->bind_result($rid);
+          if ($q->fetch()) {
+            $q->close();
+            respond(false, 'Already voted', ['receipt_id' => $rid, 'rid' => $rid]);
+          }
+        }
+        $q->close();
+      }
       respond(false, 'Already voted');
     }
     $stmt->close();
@@ -125,8 +137,25 @@ try {
   $itemStmt->close();
   $incStmt->close();
 
+  // Create a receipt record for quick retrieval
+  $receipt_id = 'R' . bin2hex(random_bytes(8));
+  $ip = $_SERVER['REMOTE_ADDR'] ?? null;
+  $ua = $_SERVER['HTTP_USER_AGENT'] ?? null;
+  $total = count($selections);
+  $json = json_encode($selections, JSON_UNESCAPED_UNICODE);
+  // Try JSON column first; fallback to text only if needed
+  if ($insr = $mysqli->prepare('INSERT INTO vote_receipts (receipt_id, student_id, selections_json, selections_text, total_selections, ip_address, user_agent) VALUES (?, ?, CAST(? AS JSON), ?, ?, ?, ?)')) {
+    $insr->bind_param('ssssiss', $receipt_id, $student_id, $json, $json, $total, $ip, $ua);
+    @$insr->execute();
+    $insr->close();
+  } else if ($insr2 = $mysqli->prepare('INSERT INTO vote_receipts (receipt_id, student_id, selections_text, total_selections, ip_address, user_agent) VALUES (?, ?, ?, ?, ?, ?)')) {
+    $insr2->bind_param('sssiss', $receipt_id, $student_id, $json, $total, $ip, $ua);
+    @$insr2->execute();
+    $insr2->close();
+  }
+
   $mysqli->commit();
-  respond(true, 'Vote saved', ['vote_id' => $vote_id]);
+  respond(true, 'Vote saved', ['vote_id' => $vote_id, 'receipt_id' => $receipt_id]);
 } catch (Exception $e) {
   $mysqli->rollback();
   respond(false, 'Server error: ' . $e->getMessage());

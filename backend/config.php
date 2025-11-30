@@ -107,6 +107,28 @@ function db_connect() {
     exit();
   }
 
+  // Ensure vote_receipts table exists for quick receipt retrieval
+  $createVoteReceipts = "CREATE TABLE IF NOT EXISTS vote_receipts (
+      id BIGINT UNSIGNED NOT NULL AUTO_INCREMENT,
+      receipt_id VARCHAR(64) NOT NULL,
+      student_id VARCHAR(64) NOT NULL,
+      selections_json JSON NULL,
+      selections_text MEDIUMTEXT NULL,
+      total_selections INT UNSIGNED NOT NULL DEFAULT 0,
+      ip_address VARCHAR(45) NULL,
+      user_agent VARCHAR(255) NULL,
+      created_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
+      PRIMARY KEY (id),
+      UNIQUE KEY uq_receipt_id (receipt_id),
+      KEY ix_student_created (student_id, created_at),
+      KEY ix_created (created_at)
+    ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4";
+  if (!$mysqli->query($createVoteReceipts)) {
+    http_response_code(500);
+    echo json_encode(['success' => false, 'message' => 'Failed creating vote_receipts table']);
+    exit();
+  }
+
   // Helpers to check column and index existence for compatibility (older MySQL/MariaDB)
   $dbNameEsc = $mysqli->real_escape_string($DB_NAME);
   $hasColumn = function($m, $table, $col) use ($dbNameEsc) {
