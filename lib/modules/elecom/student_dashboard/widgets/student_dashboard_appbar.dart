@@ -5,6 +5,41 @@ import '../../../../screens/login_screen.dart';
 import '../../../../main.dart';
 
 class StudentDashboardAppBar {
+  static void showElecomTermsDialog(BuildContext context) {
+    showDialog<void>(
+      context: context,
+      builder: (ctx) {
+        return BackdropFilter(
+          filter: ImageFilter.blur(sigmaX: 6, sigmaY: 6),
+          child: AlertDialog(
+            title: const Text('ELECOM Voting Terms & Conditions'),
+            content: const SingleChildScrollView(
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text('By participating in elections through SocieTree, you agree to:'),
+                  SizedBox(height: 8),
+                  Text('• Cast only one vote per election using your own verified account.'),
+                  Text('• Not tamper with, automate, or interfere with the voting process.'),
+                  Text('• Provide accurate information when required by ELECOM for validation.'),
+                  Text('• Respect the results and the rules set by ELECOM and your institution.'),
+                  SizedBox(height: 12),
+                  Text('Privacy & Data'),
+                  Text('Your student ID and voting selections are processed solely for managing the election. Aggregated results may be published; individual identities are protected according to ELECOM policy.'),
+                  SizedBox(height: 12),
+                  Text('Conduct'),
+                  Text('Harassment, misinformation, and attempts to disrupt the platform are prohibited. Violations may lead to sanctions under school policies.'),
+                ],
+              ),
+            ),
+            actions: [
+              TextButton(onPressed: () => Navigator.pop(ctx), child: const Text('CLOSE')),
+            ],
+          ),
+        );
+      },
+    );
+  }
   static PreferredSizeWidget build({
     required BuildContext context,
     required String orgName,
@@ -62,39 +97,7 @@ class StudentDashboardAppBar {
         IconButton(
           tooltip: 'Terms & Conditions',
           onPressed: () {
-            showDialog<void>(
-              context: context,
-              builder: (ctx) {
-                return BackdropFilter(
-                  filter: ImageFilter.blur(sigmaX: 6, sigmaY: 6),
-                  child: AlertDialog(
-                    title: const Text('ELECOM Voting Terms & Conditions'),
-                    content: const SingleChildScrollView(
-                      child: Column(
-                        crossAxisAlignment: CrossAxisAlignment.start,
-                        children: [
-                          Text('By participating in elections through SocieTree, you agree to:'),
-                          SizedBox(height: 8),
-                          Text('• Cast only one vote per election using your own verified account.'),
-                          Text('• Not tamper with, automate, or interfere with the voting process.'),
-                          Text('• Provide accurate information when required by ELECOM for validation.'),
-                          Text('• Respect the results and the rules set by ELECOM and your institution.'),
-                          SizedBox(height: 12),
-                          Text('Privacy & Data'),
-                          Text('Your student ID and voting selections are processed solely for managing the election. Aggregated results may be published; individual identities are protected according to ELECOM policy.'),
-                          SizedBox(height: 12),
-                          Text('Conduct'),
-                          Text('Harassment, misinformation, and attempts to disrupt the platform are prohibited. Violations may lead to sanctions under school policies.'),
-                        ],
-                      ),
-                    ),
-                    actions: [
-                      TextButton(onPressed: () => Navigator.pop(ctx), child: const Text('CLOSE')),
-                    ],
-                  ),
-                );
-              },
-            );
+            showElecomTermsDialog(context);
           },
           icon: const Icon(Icons.help_outline),
         ),

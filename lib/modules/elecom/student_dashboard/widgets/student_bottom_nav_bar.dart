@@ -6,6 +6,7 @@ import '../../services/elecom_voting_service.dart';
 import 'package:centralized_societree/services/user_session.dart';
 import '../services/student_dashboard_service.dart';
 import 'package:centralized_societree/modules/elecom/voting/voting_screen.dart';
+import 'package:centralized_societree/modules/elecom/voting/voting_receipt_screen.dart';
 import 'dart:math' as math;
 import 'package:http/http.dart' as http;
 import 'package:centralized_societree/config/api_config.dart';
@@ -76,7 +77,7 @@ class StudentBottomNavBar {
                           return;
                         }
                         if (i == 3) {
-                          _openStatusSheet(context);
+                          _openReceipt(context);
                           return;
                         }
                         if (i != 0) {
@@ -87,7 +88,7 @@ class StudentBottomNavBar {
                                   'Home',
                                   'Election',
                                   'Results',
-                                  'Status',
+                                  'Receipt',
                                 ][i],
                               ),
                             ),
@@ -131,14 +132,14 @@ class StudentBottomNavBar {
                         ),
                         BottomNavigationBarItem(
                           icon: Icon(
-                            Icons.check,
+                            Icons.receipt_long_outlined,
                             color: currentIsDarkMode ? Colors.white70 : null,
                           ),
                           activeIcon: Icon(
-                            Icons.check,
+                            Icons.receipt_long_outlined,
                             color: currentIsDarkMode ? Colors.white : null,
                           ),
-                          label: 'Status',
+                          label: 'Receipt',
                         ),
                       ],
                     ),
@@ -208,6 +209,129 @@ class StudentBottomNavBar {
           ],
         );
       },
+    );
+  }
+
+  // Presents a dialog with a blurred background overlay.
+  static Future<T?> _showBlurDialog<T>(BuildContext context, Widget child, {bool barrierDismissible = true}) {
+    return showGeneralDialog<T>(
+      context: context,
+      barrierDismissible: barrierDismissible,
+      barrierLabel: MaterialLocalizations.of(context).modalBarrierDismissLabel,
+      barrierColor: Colors.black.withOpacity(0.15),
+      transitionDuration: const Duration(milliseconds: 180),
+      pageBuilder: (ctx, anim, secondaryAnim) {
+        return Stack(
+          children: [
+            Positioned.fill(
+              child: BackdropFilter(
+                filter: ImageFilter.blur(sigmaX: 8, sigmaY: 8),
+                child: Container(color: Colors.transparent),
+              ),
+            ),
+            Center(child: child),
+          ],
+        );
+      },
+      transitionBuilder: (ctx, anim, secondaryAnim, child) {
+        return FadeTransition(opacity: anim, child: child);
+      },
+    );
+  }
+
+  // Opens the most recent receipt. If not cached locally, tries to load it from the server.
+  static Future<void> _openReceipt(BuildContext context) async {
+    final sid = UserSession.studentId ?? '';
+    // If no logged-in student, show message
+    if (sid.isEmpty) {
+      await _showBlurDialog(
+        context,
+        const AlertDialog(
+          title: Text('No receipt available'),
+          content: Text('Please login and complete a vote to generate a receipt.'),
+        ),
+        barrierDismissible: true,
+      );
+      return;
+    }
+
+    // Require that the user has already voted
+    try {
+      final already = await ElecomVotingService.checkAlreadyVotedDirect(sid);
+      if (!already) {
+        await _showBlurDialog(
+          context,
+          AlertDialog(
+            title: const Text('No receipt yet'),
+            content: const Text('You have not voted yet. Submit your vote to generate a receipt.'),
+            actions: [
+              TextButton(onPressed: () => Navigator.of(context).pop(), child: const Text('Close')),
+              ElevatedButton.icon(
+                onPressed: () {
+                  Navigator.of(context).pop();
+                  openVoteFlow(context);
+                },
+                icon: const Icon(Icons.how_to_vote_outlined),
+                label: const Text('Vote Now'),
+              ),
+            ],
+          ),
+          barrierDismissible: true,
+        );
+        return;
+      }
+    } catch (_) {
+      // If status cannot be determined, continue but still enforce ownership checks below
+    }
+
+    // Validate cached receipt belongs to this student
+    var id = (UserSession.lastReceiptStudentId == sid) ? UserSession.lastReceiptId : null;
+    var selections = (UserSession.lastReceiptStudentId == sid) ? UserSession.lastReceiptSelections : null;
+
+    if (id == null || id.isEmpty || selections == null || selections.isEmpty) {
+      try {
+        final r = await ElecomVotingService.getLatestReceipt(sid);
+        id = r.$1;
+        selections = r.$2;
+        if (id != null && id.isNotEmpty && selections != null && selections.isNotEmpty) {
+          UserSession.setLastReceipt(receiptId: id!, selections: selections!);
+        }
+      } catch (_) {}
+    }
+
+    if (id != null && id.isNotEmpty && selections != null && selections.isNotEmpty) {
+      await Navigator.of(context).push(
+        MaterialPageRoute(
+          builder: (_) => VotingReceiptScreen(
+            receiptId: id!,
+            selections: selections!,
+          ),
+        ),
+      );
+      return;
+    }
+
+    await _showBlurDialog(
+      context,
+      AlertDialog(
+        title: const Text('No receipt available'),
+        content: const Text('We could not find a receipt for your account. Please complete a vote to generate one.'),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.of(context).pop(),
+            child: const Text('Close'),
+          ),
+          ElevatedButton.icon(
+            onPressed: () {
+              Navigator.of(context).pop();
+              openVoteFlow(context);
+            },
+            icon: const Icon(Icons.how_to_vote_outlined),
+            label: const Text('Vote Now'),
+          ),
+        ],
+      ),
+      barrierDismissible: true,
     );
   }
 }

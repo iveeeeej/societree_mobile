@@ -111,6 +111,7 @@ class _StudentDashboardState extends State<StudentDashboard> {
   bool _isBottomBarVisible = true;
   ScrollController? _scrollController;
   double _lastScrollOffset = 0;
+  bool _termsShown = false;
 
   @override
   void initState() {
@@ -125,6 +126,8 @@ class _StudentDashboardState extends State<StudentDashboard> {
     _checkVotedStatus();
     _scrollController = ScrollController();
     _scrollController!.addListener(_onScroll);
+
+    // Terms dialog will be shown conditionally after voted status check
   }
 
   void _onScroll() {
@@ -202,6 +205,30 @@ class _StudentDashboardState extends State<StudentDashboard> {
     try {
       final already = await ElecomVotingService.checkAlreadyVotedDirect(sid);
       if (mounted) setState(() => _voted = already);
+      // After we know the voted status, auto-open terms only for ELECOM and only if not yet voted
+      if (mounted &&
+          widget.orgName.toUpperCase().contains('ELECOM') &&
+          !already &&
+          !_termsShown) {
+        WidgetsBinding.instance.addPostFrameCallback((_) {
+          if (!mounted || _termsShown) return;
+          _termsShown = true;
+          StudentDashboardAppBar.showElecomTermsDialog(context);
+        });
+      }
+      // If already voted, ensure we have the latest receipt cached for this student
+      if (already && (UserSession.lastReceiptStudentId != sid || UserSession.lastReceiptId == null || (UserSession.lastReceiptSelections?.isEmpty ?? true))) {
+        try {
+          final r = await ElecomVotingService.getLatestReceipt(sid);
+          final rid = r.$1;
+          final sels = r.$2;
+          if (rid != null && rid.isNotEmpty && sels.isNotEmpty) {
+            UserSession.setLastReceipt(receiptId: rid, selections: sels);
+          }
+        } catch (_) {
+          // ignore background errors
+        }
+      }
     } catch (_) {
       // Keep previous state on network error
     }

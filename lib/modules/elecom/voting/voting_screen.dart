@@ -290,32 +290,48 @@ class _VotingScreenState extends State<VotingScreen> {
     if (mounted) setState(() => _submitting = true);
     // Show a small blocking progress dialog while submitting
     if (mounted) {
-      showDialog(
+      showGeneralDialog<void>(
         context: context,
         barrierDismissible: false,
-        builder: (_) {
+        barrierLabel: 'Loading',
+        barrierColor: Colors.black.withOpacity(0.15),
+        transitionDuration: const Duration(milliseconds: 180),
+        pageBuilder: (ctx, a1, a2) {
           final theme = Theme.of(context);
-          return Dialog(
-            insetPadding: const EdgeInsets.symmetric(horizontal: 80),
-            shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
-            child: Padding(
-              padding: const EdgeInsets.symmetric(horizontal: 18, vertical: 16),
-              child: Row(
-                mainAxisSize: MainAxisSize.min,
-                children: [
-                  const SizedBox(width: 24, height: 24, child: CircularProgressIndicator(strokeWidth: 3)),
-                  const SizedBox(width: 12),
-                  Flexible(
-                    child: Text(
-                      'Submitting your vote...',
-                      style: theme.textTheme.bodyMedium?.copyWith(fontWeight: FontWeight.w600),
+          return Stack(
+            children: [
+              Positioned.fill(
+                child: BackdropFilter(
+                  filter: ImageFilter.blur(sigmaX: 8, sigmaY: 8),
+                  child: Container(color: Colors.transparent),
+                ),
+              ),
+              Center(
+                child: Dialog(
+                  insetPadding: const EdgeInsets.symmetric(horizontal: 80),
+                  shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+                  child: Padding(
+                    padding: const EdgeInsets.symmetric(horizontal: 18, vertical: 16),
+                    child: Row(
+                      mainAxisSize: MainAxisSize.min,
+                      children: [
+                        const SizedBox(width: 24, height: 24, child: CircularProgressIndicator(strokeWidth: 3)),
+                        const SizedBox(width: 12),
+                        Flexible(
+                          child: Text(
+                            'Submitting your vote...',
+                            style: theme.textTheme.bodyMedium?.copyWith(fontWeight: FontWeight.w600),
+                          ),
+                        ),
+                      ],
                     ),
                   ),
-                ],
+                ),
               ),
-            ),
+            ],
           );
         },
+        transitionBuilder: (ctx, anim, _, child) => FadeTransition(opacity: anim, child: child),
       );
     }
     try {
@@ -342,13 +358,28 @@ class _VotingScreenState extends State<VotingScreen> {
 
       if (ok) {
         // Navigate to receipt screen with selections snapshot (even if receiptId is missing)
-        final snapshot = Map<String, String>.from(_selections);
-        final localId = (receiptId == null || receiptId.isEmpty) ? _buildLocalReceiptId(sid, snapshot) : receiptId;
+        var snapshot = Map<String, String>.from(_selections);
+        var localId = (receiptId == null || receiptId.isEmpty) ? _buildLocalReceiptId(sid, snapshot) : receiptId;
+        // Try to fetch the official receipt from the server; if present, prefer it
+        try {
+          final r = await ElecomVotingService.getLatestReceipt(sid);
+          final rid = r.$1;
+          final sels = r.$2;
+          if (rid != null && rid.isNotEmpty && sels.isNotEmpty) {
+            localId = rid;
+            snapshot = sels;
+          }
+        } catch (_) {}
+        // Remember last receipt so it can be reopened from bottom nav
+        if (localId != null) {
+          UserSession.setLastReceipt(receiptId: localId, selections: snapshot);
+        }
         await Navigator.of(context).pushReplacement(
           MaterialPageRoute(
             builder: (_) => VotingReceiptScreen(
               receiptId: localId ?? '-',
               selections: snapshot,
+              showThanksOnBack: true,
             ),
           ),
         );

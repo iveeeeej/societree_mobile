@@ -15,6 +15,83 @@ class ElecomVotingService {
     }
   }
 
+  // Try to fetch the latest voting receipt for a student. Returns (id, selections)
+  static Future<(String? id, Map<String, String> selections)> getLatestReceipt(String studentId) async {
+    Map<String, String> _parseSelections(dynamic decoded) {
+      final out = <String, String>{};
+      if (decoded is Map<String, dynamic>) {
+        // Common container keys
+        final sel = decoded['selections'] ?? decoded['items'] ?? decoded['data'];
+        if (sel is Map) {
+          for (final e in sel.entries) {
+            out[e.key.toString()] = e.value.toString();
+          }
+        } else if (sel is List) {
+          for (final it in sel) {
+            if (it is Map) {
+              final pos = (it['position'] ?? it['pos'] ?? it['key'] ?? it['name'] ?? '').toString();
+              final cid = (it['candidate_id'] ?? it['candidateId'] ?? it['value'] ?? it['cid'] ?? '').toString();
+              if (pos.isNotEmpty && cid.isNotEmpty) out[pos] = cid;
+            }
+          }
+        }
+        // Flat map case: position::name -> id
+        if (out.isEmpty) {
+          for (final e in decoded.entries) {
+            if (e.value is String || e.value is num) {
+              out[e.key.toString()] = e.value.toString();
+            }
+          }
+        }
+      }
+      return out;
+    }
+
+    String? _parseId(dynamic decoded) {
+      if (decoded is Map<String, dynamic>) {
+        final id = decoded['receipt_id'] ?? decoded['receiptId'] ?? decoded['vote_id'] ?? decoded['id'] ?? decoded['rid'];
+        return id?.toString();
+      }
+      return null;
+    }
+
+    Future<(String? id, Map<String, String> selections)> _try(Uri uri) async {
+      try {
+        final res = await http.get(uri).timeout(const Duration(seconds: 12));
+        final decoded = decodeJson(res.body);
+        if (decoded is List && decoded.isNotEmpty) {
+          // Some APIs return a list with one receipt
+          final first = decoded.first;
+          if (first is Map<String, dynamic>) {
+            final id = _parseId(first);
+            final sels = _parseSelections(first);
+            if (id != null || sels.isNotEmpty) return (id, sels);
+          }
+        }
+        if (decoded is Map<String, dynamic>) {
+          // Drill into common wrappers
+          final inner = decoded['receipt'] ?? decoded['data'] ?? decoded['result'] ?? decoded;
+          final id = _parseId(inner is Map<String, dynamic> ? inner : decoded);
+          final sels = _parseSelections(inner is Map<String, dynamic> ? inner : decoded);
+          if (id != null || sels.isNotEmpty) return (id, sels);
+        }
+      } catch (_) {}
+      return (null, const <String, String>{});
+    }
+
+    final List<Uri> candidates = [
+      Uri.parse('$apiBaseUrl/get_vote_receipt.php?student_id=${Uri.encodeComponent(studentId)}'),
+      Uri.parse('$apiBaseUrl/get_latest_receipt.php?student_id=${Uri.encodeComponent(studentId)}'),
+      Uri.parse('$apiBaseUrl/get_receipt.php?student_id=${Uri.encodeComponent(studentId)}'),
+      Uri.parse('$apiBaseUrl/get_voting_receipt.php?student_id=${Uri.encodeComponent(studentId)}'),
+    ];
+    for (final u in candidates) {
+      final r = await _try(u);
+      if (r.$1 != null || r.$2.isNotEmpty) return r;
+    }
+    return (null, const <String, String>{});
+  }
+
   // Admin: reset all votes (clears votes and vote_items tables)
   static Future<(bool ok, String message)> resetVotes() async {
     try {

@@ -1,12 +1,20 @@
 import 'package:flutter/material.dart';
+import 'dart:ui' show ImageFilter;
 import 'package:centralized_societree/main.dart';
 import 'package:centralized_societree/modules/elecom/dashboard.dart';
+import 'package:centralized_societree/modules/elecom/student_dashboard/services/student_dashboard_service.dart';
 
 class VotingReceiptScreen extends StatelessWidget {
   final String receiptId;
   final Map<String, String> selections;
+  final bool showThanksOnBack;
 
-  const VotingReceiptScreen({super.key, required this.receiptId, required this.selections});
+  const VotingReceiptScreen({
+    super.key,
+    required this.receiptId,
+    required this.selections,
+    this.showThanksOnBack = false,
+  });
 
   @override
   Widget build(BuildContext context) {
@@ -114,21 +122,49 @@ class VotingReceiptScreen extends StatelessWidget {
                   Expanded(
                     child: entries.isEmpty
                         ? Center(child: Text('No selections recorded', style: theme.textTheme.bodyMedium))
-                        : ListView.separated(
-                            itemCount: entries.length,
-                            separatorBuilder: (_, i) {
-                              if (i < 0 || i >= entries.length - 1) return const Divider(height: 1);
-                              final aOrg = entries[i].key.split('::').first;
-                              final bOrg = entries[i + 1].key.split('::').first;
-                              if (orgPri(aOrg) != orgPri(bOrg)) return const SizedBox(height: 12);
-                              return const Divider(height: 1);
-                            },
-                            itemBuilder: (_, i) {
-                              final e = entries[i];
-                              return ListTile(
-                                contentPadding: EdgeInsets.zero,
-                                title: Text(e.key),
-                                subtitle: Text('Candidate ID: ${e.value}'),
+                        : FutureBuilder<List<Map<String, dynamic>>>(
+                            future: StudentDashboardService.loadCandidates(),
+                            builder: (context, snapshotData) {
+                              final data = snapshotData.data ?? const <Map<String, dynamic>>[];
+                              final idToName = <String, String>{
+                                for (final c in data)
+                                  if ((c['id'] ?? c['candidate_id'] ?? '').toString().isNotEmpty)
+                                    (c['id'] ?? c['candidate_id']).toString(): (c['name'] ?? c['candidate_name'] ?? '').toString(),
+                              };
+                              if (snapshotData.connectionState == ConnectionState.waiting) {
+                                return const Center(child: CircularProgressIndicator());
+                              }
+                              return ListView.separated(
+                                itemCount: entries.length,
+                                separatorBuilder: (_, i) {
+                                  if (i < 0 || i >= entries.length - 1) return const Divider(height: 1);
+                                  final aOrg = entries[i].key.split('::').first;
+                                  final bOrg = entries[i + 1].key.split('::').first;
+                                  if (orgPri(aOrg) != orgPri(bOrg)) return const SizedBox(height: 12);
+                                  return const Divider(height: 1);
+                                },
+                                itemBuilder: (_, i) {
+                                  final e = entries[i];
+                                  final cid = e.value;
+                                  final cname = idToName[cid];
+                                  final hasName = (cname != null && cname.isNotEmpty);
+                                  return ListTile(
+                                    contentPadding: EdgeInsets.zero,
+                                    title: Text(e.key),
+                                    subtitle: hasName
+                                        ? Column(
+                                            crossAxisAlignment: CrossAxisAlignment.start,
+                                            children: [
+                                              Text(
+                                                cname!,
+                                                style: theme.textTheme.bodyMedium?.copyWith(fontWeight: FontWeight.w600),
+                                              ),
+                                              Text('Candidate ID: $cid', style: theme.textTheme.labelSmall),
+                                            ],
+                                          )
+                                        : Text('Candidate ID: $cid'),
+                                  );
+                                },
                               );
                             },
                           ),
@@ -137,41 +173,59 @@ class VotingReceiptScreen extends StatelessWidget {
                     width: double.infinity,
                     child: FilledButton.icon(
                       onPressed: () async {
-                        await showDialog(
-                          context: context,
-                          barrierDismissible: false,
-                          builder: (ctx) {
-                            Future.delayed(const Duration(milliseconds: 1000), () {
-                              if (Navigator.of(ctx).canPop()) Navigator.of(ctx).pop();
-                            });
-                            return Dialog(
-                              shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
-                              child: Padding(
-                                padding: const EdgeInsets.fromLTRB(24, 28, 24, 28),
-                                child: Column(
-                                  mainAxisSize: MainAxisSize.min,
-                                  children: [
-                                    Container(
-                                      width: 64,
-                                      height: 64,
-                                      decoration: const BoxDecoration(
-                                        color: Color(0xFF22C55E),
-                                        shape: BoxShape.circle,
+                        if (showThanksOnBack) {
+                          await showGeneralDialog<void>(
+                            context: context,
+                            barrierDismissible: false,
+                            barrierLabel: 'Thanks',
+                            barrierColor: Colors.black.withOpacity(0.15),
+                            transitionDuration: const Duration(milliseconds: 180),
+                            pageBuilder: (ctx, a1, a2) {
+                              Future.delayed(const Duration(milliseconds: 1000), () {
+                                if (Navigator.of(ctx).canPop()) Navigator.of(ctx).pop();
+                              });
+                              return Stack(
+                                children: [
+                                  Positioned.fill(
+                                    child: BackdropFilter(
+                                      filter: ImageFilter.blur(sigmaX: 8, sigmaY: 8),
+                                      child: Container(color: Colors.transparent),
+                                    ),
+                                  ),
+                                  Center(
+                                    child: Dialog(
+                                      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
+                                      child: Padding(
+                                        padding: const EdgeInsets.fromLTRB(24, 28, 24, 28),
+                                        child: Column(
+                                          mainAxisSize: MainAxisSize.min,
+                                          children: [
+                                            Container(
+                                              width: 64,
+                                              height: 64,
+                                              decoration: const BoxDecoration(
+                                                color: Color(0xFF22C55E),
+                                                shape: BoxShape.circle,
+                                              ),
+                                              child: const Icon(Icons.check, color: Colors.white, size: 36),
+                                            ),
+                                            const SizedBox(height: 16),
+                                            Text(
+                                              'Thank you for voting',
+                                              style: Theme.of(context).textTheme.titleMedium?.copyWith(fontWeight: FontWeight.w700),
+                                            ),
+                                          ],
+                                        ),
                                       ),
-                                      child: const Icon(Icons.check, color: Colors.white, size: 36),
                                     ),
-                                    const SizedBox(height: 16),
-                                    Text(
-                                      'Thank you for voting',
-                                      style: Theme.of(context).textTheme.titleMedium?.copyWith(fontWeight: FontWeight.w700),
-                                    ),
-                                  ],
-                                ),
-                              ),
-                            );
-                          },
-                        );
-                        if (!context.mounted) return;
+                                  ),
+                                ],
+                              );
+                            },
+                            transitionBuilder: (ctx, anim, _, child) => FadeTransition(opacity: anim, child: child),
+                          );
+                          if (!context.mounted) return;
+                        }
                         Navigator.of(context).pushAndRemoveUntil(
                           MaterialPageRoute(builder: (_) => const ElecomDashboard()),
                           (route) => false,
