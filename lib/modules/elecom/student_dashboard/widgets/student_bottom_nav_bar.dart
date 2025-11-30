@@ -1,6 +1,7 @@
 import 'package:centralized_societree/main.dart';
 import 'package:flutter/material.dart';
 import 'dart:ui';
+import 'dart:async';
 import '../../services/elecom_voting_service.dart';
 import 'package:centralized_societree/services/user_session.dart';
 import '../services/student_dashboard_service.dart';
@@ -224,11 +225,13 @@ class _ResultsChartsSheetState extends State<_ResultsChartsSheet> {
   List<_ResultItem> _items = const [];
   String? _selectedOrg;
   String? _selectedPos;
+  Timer? _refreshTimer;
 
   @override
   void initState() {
     super.initState();
     _load();
+    _startAutoRefresh();
   }
 
   Future<void> _load() async {
@@ -254,6 +257,19 @@ class _ResultsChartsSheetState extends State<_ResultsChartsSheet> {
     }
   }
 
+  void _startAutoRefresh() {
+    _refreshTimer?.cancel();
+    _refreshTimer = Timer.periodic(const Duration(seconds: 5), (_) {
+      if (mounted) _load();
+    });
+  }
+
+  @override
+  void dispose() {
+    _refreshTimer?.cancel();
+    super.dispose();
+  }
+
   Future<List<_ResultItem>> _fetchResults({String? electionId}) async {
     Future<List<_ResultItem>> _tryUri(Uri uri) async {
       final res = await http.get(uri).timeout(const Duration(seconds: 12));
@@ -265,7 +281,9 @@ class _ResultsChartsSheetState extends State<_ResultsChartsSheet> {
         final votes = votesRaw is num ? votesRaw.toInt() : int.tryParse(votesRaw.toString()) ?? 0;
         final position = (m['position'] ?? m['position_name'] ?? m['pos'] ?? '').toString();
         final organization = (m['organization'] ?? m['org'] ?? m['organization_name'] ?? '').toString();
-        return _ResultItem(name: name, votes: votes, position: position, organization: organization);
+        final party = (m['party'] ?? m['party_name'] ?? m['organization_party'] ?? '').toString();
+        final photoUrl = (m['photo'] ?? m['photoUrl'] ?? m['image'] ?? m['img_url'] ?? '').toString();
+        return _ResultItem(name: name, votes: votes, position: position, organization: organization, party: party, photoUrl: photoUrl);
       }).where((r) => r.name.isNotEmpty).toList();
       return mapped;
     }
@@ -340,164 +358,126 @@ class _ResultsChartsSheetState extends State<_ResultsChartsSheet> {
   }
 
   Widget _buildResultsBody(ThemeData theme) {
-    // Build filters from available data
-    final orgs = _items.map((e) => e.organization).where((s) => s.isNotEmpty).toSet().toList()..sort();
-    // Predefined organization-position guide (fallback if API lacks some items)
-    const Map<String, List<String>> orgPosGuide = {
-      'USG (University Student Government)': [
-        'President','Vice President','General Secretary','Associate Secretary','Treasurer','Auditor','P.I.O','IT Representative','BTLED Representative','BFPT Representative'
-      ],
-      'SITE (School of Information Technology Education)': [
-        'President','Vice President','General Secretary','Associate Secretary','Treasurer','Auditor','P.I.O'
-      ],
-      'PAFE (Public Administration & Financial Education)': [
-        'President','Vice President','General Secretary','Associate Secretary','Treasurer','Auditor','P.I.O'
-      ],
-      'AFPRTECHS (Allied Fields, Professional, Research & Technology Society)': [
-        'President','Vice President','General Secretary','Associate Secretary','Treasurer','Auditor','P.I.O'
-      ],
-    };
-    // Derive positions; if org selected, show only its positions (guide first, else data-derived)
-    List<String> positions;
-    if (_selectedOrg != null && _selectedOrg!.isNotEmpty) {
-      final fromGuide = orgPosGuide[_selectedOrg!];
-      if (fromGuide != null) {
-        positions = List<String>.from(fromGuide);
-      } else {
-        positions = _items.where((e) => e.organization == _selectedOrg).map((e) => e.position).where((s) => s.isNotEmpty).toSet().toList()..sort();
+    // Normalize organization keys
+    String orgKey(String s) {
+      final u = s.toUpperCase();
+      if (u.contains('USG')) return 'USG';
+      if (u.contains('SITE')) return 'SITE';
+      if (u.contains('PAFE')) return 'PAFE';
+      if (u.contains('AFPR')) return 'AFPROTECHS';
+      return s.isEmpty ? 'OTHER' : s;
+    }
+
+    // Orders
+    const orgOrder = ['USG', 'SITE', 'PAFE', 'AFPROTECHS'];
+    // Normalize positions (e.g., PIO variants)
+    String posKey(String s) {
+      final u = s.toUpperCase().trim();
+      if (u == 'PIO' || u == 'P.I.O' || u.contains('PUBLIC INFORMATION')) {
+        return 'Public Information Officer';
       }
-    } else {
-      positions = _items.map((e) => e.position).where((s) => s.isNotEmpty).toSet().toList()..sort();
+      if (u.contains('VICE') && u.contains('PRES')) return 'Vice President';
+      if (u.contains('GENERAL') && u.contains('SEC')) return 'General Secretary';
+      if (u.contains('ASSOC') && u.contains('SEC')) return 'Associate Secretary';
+      if (u.contains('PRES')) return 'President';
+      if (u.contains('TREAS')) return 'Treasurer';
+      if (u.contains('AUDIT')) return 'Auditor';
+      return s.isEmpty ? '—' : s;
     }
-    final filtered = _items.where((e) {
-      final orgOk = (_selectedOrg == null || _selectedOrg == '' || e.organization == _selectedOrg);
-      final posOk = (_selectedPos == null || _selectedPos == '' || e.position == _selectedPos);
-      return orgOk && posOk;
-    }).toList();
 
-    final inputBorder = OutlineInputBorder(borderRadius: BorderRadius.circular(12));
+    const commonPositions = [
+      'President',
+      'Vice President',
+      'General Secretary',
+      'Associate Secretary',
+      'Treasurer',
+      'Auditor',
+      'Public Information Officer',
+    ];
+    const usgExtra = ['IT Representative', 'BTLED Representative', 'BFPT Representative'];
 
-    final filterRow = Wrap(
-      spacing: 12,
-      runSpacing: 8,
-      children: [
-        SizedBox(
-          width: 260,
-          child: DropdownButtonFormField<String>(
-            value: (_selectedOrg?.isEmpty ?? true) ? null : _selectedOrg,
-            isExpanded: true,
-            decoration: InputDecoration(
-              labelText: 'Organization',
-              border: inputBorder,
-              enabledBorder: inputBorder,
-              focusedBorder: inputBorder.copyWith(borderSide: BorderSide(color: theme.colorScheme.primary, width: 2)),
-              filled: true,
-              fillColor: theme.colorScheme.surfaceVariant.withOpacity(0.35),
-              contentPadding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
-            ),
-            items: [
-              const DropdownMenuItem<String>(value: '', child: Text('All Organizations')),
-              ...orgs.map((o) => DropdownMenuItem<String>(value: o, child: Text(o))).toList(),
-            ],
-            onChanged: (v) => setState(() { _selectedOrg = (v ?? '').trim(); }),
-          ),
-        ),
-        SizedBox(
-          width: 260,
-          child: DropdownButtonFormField<String>(
-            value: (_selectedPos?.isEmpty ?? true) ? null : _selectedPos,
-            isExpanded: true,
-            decoration: InputDecoration(
-              labelText: 'Position',
-              border: inputBorder,
-              enabledBorder: inputBorder,
-              focusedBorder: inputBorder.copyWith(borderSide: BorderSide(color: theme.colorScheme.primary, width: 2)),
-              filled: true,
-              fillColor: theme.colorScheme.surfaceVariant.withOpacity(0.35),
-              contentPadding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
-            ),
-            items: [
-              const DropdownMenuItem<String>(value: '', child: Text('All Positions')),
-              ...positions.map((p) => DropdownMenuItem<String>(value: p, child: Text(p))).toList(),
-            ],
-            onChanged: (v) => setState(() { _selectedPos = (v ?? '').trim(); }),
-          ),
-        ),
-      ],
-    );
+    // Group items by org->position
+    final grouped = <String, Map<String, List<_ResultItem>>>{};
+    for (final it in _items) {
+      final ok = orgKey(it.organization);
+      final pos = posKey(it.position);
+      (grouped[ok] ??= <String, List<_ResultItem>>{});
+      (grouped[ok]![pos] ??= <_ResultItem>[]).add(it);
+    }
 
-    // Overview header and guide
-    final overview = Column(
-      crossAxisAlignment: CrossAxisAlignment.start,
-      children: [
-        Text('Election Results Overview', style: theme.textTheme.titleMedium?.copyWith(fontWeight: FontWeight.w700)),
-        const SizedBox(height: 6),
-        Text(
-          'Select an Organization and Position to view the detailed vote results. Each result includes a bar graph, percentage breakdown, and a pie chart for better visualization.',
-          style: theme.textTheme.bodySmall,
-        ),
-        const SizedBox(height: 8),
-        Theme(
-          data: theme.copyWith(dividerColor: theme.dividerColor.withOpacity(0.2)),
-          child: ExpansionTile(
-            tilePadding: EdgeInsets.zero,
-            childrenPadding: const EdgeInsets.only(top: 4),
-            title: Text('Available Organizations and Positions', style: theme.textTheme.labelLarge?.copyWith(fontWeight: FontWeight.w700)),
-            children: [
-              _GuideList(title: 'USG (University Student Government)', items: orgPosGuide['USG (University Student Government)'] ?? const []),
-              _GuideList(title: 'SITE (School of Information Technology Education)', items: orgPosGuide['SITE (School of Information Technology Education)'] ?? const []),
-              _GuideList(title: 'PAFE (Public Administration & Financial Education)', items: orgPosGuide['PAFE (Public Administration & Financial Education)'] ?? const []),
-              _GuideList(title: 'AFPRTECHS (Allied Fields, Professional, Research & Technology Society)', items: orgPosGuide['AFPRTECHS (Allied Fields, Professional, Research & Technology Society)'] ?? const []),
-            ],
-          ),
-        ),
-      ],
-    );
+    // Build UI sections
+    final sections = <Widget>[
+      // Summary charts at the top
+      _SummaryCharts(items: _items),
+      const SizedBox(height: 12),
+    ];
+    for (final o in orgOrder) {
+      final map = grouped[o];
+      if (map == null || map.isEmpty) continue;
 
-    // If a specific position is chosen, show a single professional card
-    if ((_selectedPos != null && _selectedPos!.isNotEmpty)) {
-      return Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          overview,
-          filterRow,
-          const SizedBox(height: 12),
-          _ResultsSectionCard(
-            title: _selectedPos!,
-            child: _ResultsCharts(items: filtered.isNotEmpty ? filtered : _items),
-          ),
-        ],
+      final posOrder = o == 'USG' ? [...commonPositions, ...usgExtra] : List<String>.from(commonPositions);
+
+      sections.add(
+        Padding(
+          padding: const EdgeInsets.only(top: 8, bottom: 6),
+          child: Text(o, style: theme.textTheme.titleMedium?.copyWith(fontWeight: FontWeight.w800)),
+        ),
       );
+
+      // Render positions in specified order first
+      final rendered = <String>{};
+      for (final pos in posOrder) {
+        final items = List<_ResultItem>.from(map[pos] ?? const <_ResultItem>[]);
+        items.sort((a, b) => b.votes.compareTo(a.votes));
+        if (items.isEmpty) continue;
+        final total = items.fold<int>(0, (s, e) => s + e.votes);
+        sections.add(_ResultsSectionCard(
+          title: pos,
+          child: Column(
+            children: items.map((it) {
+              final percent = total == 0 ? 0.0 : (it.votes / total);
+              final isWinner = identical(it, items.first);
+              return Padding(
+                padding: const EdgeInsets.only(bottom: 10),
+                child: _CandidateCard(item: it, votes: it.votes, percent: percent, highlight: isWinner),
+              );
+            }).toList(),
+          ),
+        ));
+        rendered.add(pos);
+      }
+
+      // Render any remaining positions not in the predefined order
+      final remaining = map.keys.where((k) => !rendered.contains(k)).toList()..sort();
+      for (final pos in remaining) {
+        final items = List<_ResultItem>.from(map[pos] ?? const <_ResultItem>[]);
+        items.sort((a, b) => b.votes.compareTo(a.votes));
+        if (items.isEmpty) continue;
+        final total = items.fold<int>(0, (s, e) => s + e.votes);
+        sections.add(_ResultsSectionCard(
+          title: pos,
+          child: Column(
+            children: items.map((it) {
+              final percent = total == 0 ? 0.0 : (it.votes / total);
+              final isWinner = identical(it, items.first);
+              return Padding(
+                padding: const EdgeInsets.only(bottom: 10),
+                child: _CandidateCard(item: it, votes: it.votes, percent: percent, highlight: isWinner),
+              );
+            }).toList(),
+          ),
+        ));
+      }
     }
 
-    // Otherwise, render sections grouped by position
-    final byPos = <String, List<_ResultItem>>{};
-    for (final it in filtered.isNotEmpty ? filtered : _items) {
-      final key = it.position.isEmpty ? '—' : it.position;
-      (byPos[key] ??= []).add(it);
+    if (sections.isEmpty) {
+      return Center(child: Text('No results available yet.', style: theme.textTheme.bodyMedium));
     }
-    final posKeys = byPos.keys.toList()..sort();
 
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        overview,
-        filterRow,
-        const SizedBox(height: 12),
-        ListView.separated(
-          shrinkWrap: true,
-          physics: const NeverScrollableScrollPhysics(),
-          itemCount: posKeys.length,
-          separatorBuilder: (_, __) => const SizedBox(height: 10),
-          itemBuilder: (ctx, i) {
-            final pos = posKeys[i];
-            final items = byPos[pos]!..sort((a, b) => b.votes.compareTo(a.votes));
-            return _ResultsSectionCard(
-              title: pos,
-              child: _ResultsCharts(items: items),
-            );
-          },
-        ),
+        ...sections,
       ],
     );
   }
@@ -508,7 +488,16 @@ class _ResultItem {
   final int votes;
   final String position;
   final String organization;
-  const _ResultItem({required this.name, required this.votes, required this.position, required this.organization});
+  final String party;
+  final String photoUrl;
+  const _ResultItem({
+    required this.name,
+    required this.votes,
+    required this.position,
+    required this.organization,
+    this.party = '',
+    this.photoUrl = '',
+  });
 }
 
 class _ResultsSectionCard extends StatelessWidget {
@@ -519,22 +508,24 @@ class _ResultsSectionCard extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
-    return Card(
-      elevation: 2,
-      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
-      clipBehavior: Clip.antiAlias,
+    final blue = const Color(0xFF3B82F6);
+    return Container(
+      margin: const EdgeInsets.only(bottom: 10),
+      decoration: BoxDecoration(
+        color: blue.withOpacity(0.06),
+        borderRadius: BorderRadius.circular(16),
+      ),
       child: Padding(
         padding: const EdgeInsets.fromLTRB(16, 14, 16, 16),
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            Row(
-              children: [
-                Text(
-                  title,
-                  style: theme.textTheme.titleMedium?.copyWith(fontWeight: FontWeight.w700),
-                ),
-              ],
+            Text(
+              title,
+              style: theme.textTheme.titleMedium?.copyWith(
+                fontWeight: FontWeight.w800,
+                color: blue,
+              ),
             ),
             const SizedBox(height: 10),
             child,
@@ -542,6 +533,172 @@ class _ResultsSectionCard extends StatelessWidget {
         ),
       ),
     );
+  }
+}
+
+class _CandidateCard extends StatelessWidget {
+  final _ResultItem item;
+  final int votes;
+  final double percent;
+  final bool highlight;
+  const _CandidateCard({required this.item, required this.votes, required this.percent, this.highlight = false});
+
+  @override
+  Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+    final pct = percent.clamp(0.0, 1.0);
+    final hasVotes = pct > 0;
+    final blue = const Color(0xFF3B82F6);
+    final barColor = hasVotes ? blue : theme.colorScheme.onSurface.withOpacity(0.25);
+    return Container(
+      decoration: BoxDecoration(
+        color: theme.cardColor,
+        borderRadius: BorderRadius.circular(12),
+        boxShadow: [
+          BoxShadow(color: Colors.black.withOpacity(0.06), blurRadius: 10, offset: const Offset(0, 4)),
+        ],
+        border: Border.all(color: theme.dividerColor.withOpacity(0.3)),
+      ),
+      padding: const EdgeInsets.all(12),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Row(
+            children: [
+              ClipOval(
+                child: SizedBox(
+                  width: 40,
+                  height: 40,
+                  child: (item.photoUrl.isNotEmpty)
+                      ? Image.network(
+                          item.photoUrl,
+                          fit: BoxFit.cover,
+                          errorBuilder: (_, __, ___) => Container(color: Colors.grey.shade200, child: const Icon(Icons.person, size: 24, color: Colors.grey)),
+                        )
+                      : Container(color: Colors.grey.shade200, child: Center(child: Text(_initials(item.name), style: const TextStyle(fontWeight: FontWeight.w700)))),
+                ),
+              ),
+              const SizedBox(width: 12),
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(item.name, style: theme.textTheme.titleSmall?.copyWith(fontWeight: FontWeight.w700)),
+                    if (item.party.isNotEmpty)
+                      Padding(
+                        padding: const EdgeInsets.only(top: 2),
+                        child: Text(item.party, style: theme.textTheme.labelSmall?.copyWith(color: theme.hintColor)),
+                      ),
+                  ],
+                ),
+              ),
+            ],
+          ),
+          const SizedBox(height: 8),
+          // Votes label like "3 votes (100.0%)"
+          RichText(
+            text: TextSpan(
+              children: [
+                TextSpan(text: '$votes votes', style: theme.textTheme.titleSmall?.copyWith(color: blue, fontWeight: FontWeight.w700)),
+                TextSpan(text: '  (${(pct * 100).toStringAsFixed(1)}%)', style: theme.textTheme.bodySmall?.copyWith(color: Colors.black54)),
+              ],
+            ),
+          ),
+          // Progress bar
+          ClipRRect(
+            borderRadius: BorderRadius.circular(8),
+            child: TweenAnimationBuilder<double>(
+              tween: Tween(begin: 0, end: pct),
+              duration: const Duration(milliseconds: 500),
+              curve: Curves.easeOut,
+              builder: (context, value, _) => LinearProgressIndicator(
+                value: value,
+                minHeight: 8,
+                backgroundColor: barColor.withOpacity(0.2),
+                valueColor: AlwaysStoppedAnimation<Color>(barColor),
+              ),
+            ),
+          ),
+          const SizedBox(height: 2),
+          if (!hasVotes)
+            Text('No votes yet', style: theme.textTheme.labelSmall?.copyWith(color: theme.hintColor)),
+        ],
+      ),
+    );
+  }
+
+  String _initials(String name) {
+    final parts = name.split(' ').where((e) => e.isNotEmpty).toList();
+    if (parts.isEmpty) return '?';
+    if (parts.length == 1) return parts.first.substring(0, 1).toUpperCase();
+    return (parts.first[0] + parts.last[0]).toUpperCase();
+  }
+}
+
+class _SummaryCharts extends StatelessWidget {
+  final List<_ResultItem> items;
+  const _SummaryCharts({required this.items});
+
+  @override
+  Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+    // Totals per organization for pie chart
+    Map<String, int> byOrg = <String, int>{};
+    for (final r in items) {
+      final key = _orgKey(r.organization);
+      byOrg[key] = (byOrg[key] ?? 0) + r.votes;
+    }
+    final pieEntries = byOrg.entries.toList()
+      ..sort((a, b) => b.value.compareTo(a.value));
+
+    // Top 5 candidates for bar chart
+    final topCandidates = <String, int>{};
+    for (final r in items) {
+      topCandidates[r.name] = (topCandidates[r.name] ?? 0) + r.votes;
+    }
+    final barEntries = topCandidates.entries.toList()
+      ..sort((a, b) => b.value.compareTo(a.value));
+    if (barEntries.length > 5) barEntries.removeRange(5, barEntries.length);
+
+    final totalVotes = pieEntries.fold<int>(0, (s, e) => s + e.value);
+
+    return Row(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        // Pie chart
+        Expanded(
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Text('Votes by Org', style: theme.textTheme.labelLarge?.copyWith(fontWeight: FontWeight.w700)),
+              const SizedBox(height: 8),
+              SizedBox(height: 140, child: _PieChart(entries: pieEntries, totalVotes: totalVotes)),
+            ],
+          ),
+        ),
+        const SizedBox(width: 16),
+        // Bar chart
+        Expanded(
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Text('Top Candidates', style: theme.textTheme.labelLarge?.copyWith(fontWeight: FontWeight.w700)),
+              const SizedBox(height: 8),
+              _BarChart(entries: barEntries, totalVotes: barEntries.fold<int>(0, (s, e) => s + e.value)),
+            ],
+          ),
+        ),
+      ],
+    );
+  }
+
+  static String _orgKey(String s) {
+    final u = s.toUpperCase();
+    if (u.contains('USG')) return 'USG';
+    if (u.contains('SITE')) return 'SITE';
+    if (u.contains('PAFE')) return 'PAFE';
+    if (u.contains('AFPR')) return 'AFPROTECHS';
+    return s.isEmpty ? 'OTHER' : s;
   }
 }
 
