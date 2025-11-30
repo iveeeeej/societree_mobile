@@ -1711,13 +1711,34 @@ class _DirectVoteContentState extends State<_DirectVoteContent> {
                 if (mounted) ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Please login to vote.')));
                 return;
               }
-              final (ok, msg, _) = await ElecomVotingService.submitDirectVote(sid, selections);
+              var (ok, msg, _) = await ElecomVotingService.submitDirectVote(sid, selections);
+              if (!ok) {
+                final lower = msg.toLowerCase();
+                if (lower.contains('already')) {
+                  ok = true;
+                } else {
+                  try {
+                    final already = await ElecomVotingService.checkAlreadyVotedDirect(sid);
+                    if (already) ok = true;
+                  } catch (_) {}
+                }
+              }
               if (ok && mounted) {
                 Navigator.of(context).pop();
                 ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Vote submitted successfully.')));
               } else if (mounted) {
-                final text = (msg.isNotEmpty) ? 'Failed to submit vote: ' + msg : 'Failed to submit vote.';
-                ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(text)));
+                final isAlready = msg.toLowerCase().contains('already');
+                if (isAlready) {
+                  // Close the current sheet/dialog if it's open, then open the receipt
+                  if (Navigator.of(context).canPop()) {
+                    Navigator.of(context).pop();
+                  }
+                  await Future.delayed(const Duration(milliseconds: 200));
+                  if (mounted) await StudentBottomNavBar._openReceipt(context);
+                } else {
+                  final text = (msg.isNotEmpty) ? 'Failed to submit vote: ' + msg : 'Failed to submit vote.';
+                  ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(text)));
+                }
               }
             },
             icon: const Icon(Icons.how_to_vote_outlined),

@@ -286,6 +286,32 @@ class _VotingScreenState extends State<VotingScreen> {
       ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Please login to vote.')));
       return;
     }
+    // If the server already recorded a vote (e.g., user re-enters or previous submit completed),
+    // skip submission and go straight to receipt.
+    try {
+      final already = await ElecomVotingService.checkAlreadyVotedDirect(sid);
+      if (already) {
+        try {
+          final r = await ElecomVotingService.getLatestReceipt(sid);
+          final rid = r.$1;
+          final sels = r.$2;
+          if (rid != null && rid.isNotEmpty && sels.isNotEmpty) {
+            if (!mounted) return;
+            await Navigator.of(context).pushReplacement(
+              MaterialPageRoute(
+                builder: (_) => VotingReceiptScreen(
+                  receiptId: rid,
+                  selections: sels,
+                  showThanksOnBack: true,
+                ),
+              ),
+            );
+            return;
+          }
+        } catch (_) {}
+        // If no receipt found yet, still proceed to submission flow below.
+      }
+    } catch (_) {}
 
     if (mounted) setState(() => _submitting = true);
     // Show a small blocking progress dialog while submitting
@@ -360,16 +386,33 @@ class _VotingScreenState extends State<VotingScreen> {
         // Navigate to receipt screen with selections snapshot (even if receiptId is missing)
         var snapshot = Map<String, String>.from(_selections);
         var localId = (receiptId == null || receiptId.isEmpty) ? _buildLocalReceiptId(sid, snapshot) : receiptId;
-        // Try to fetch the official receipt from the server; if present, prefer it
-        try {
-          final r = await ElecomVotingService.getLatestReceipt(sid);
-          final rid = r.$1;
-          final sels = r.$2;
-          if (rid != null && rid.isNotEmpty && sels.isNotEmpty) {
-            localId = rid;
-            snapshot = sels;
+        // If the backend is slow to finalize, poll a few times for the official receipt
+        if (receiptId == null || receiptId.isEmpty) {
+          for (var i = 0; i < 10; i++) {
+            try {
+              final r = await ElecomVotingService.getLatestReceipt(sid);
+              final rid = r.$1;
+              final sels = r.$2;
+              if (rid != null && rid.isNotEmpty && sels.isNotEmpty) {
+                localId = rid;
+                snapshot = sels;
+                break;
+              }
+            } catch (_) {}
+            await Future.delayed(const Duration(milliseconds: 1000));
           }
-        } catch (_) {}
+        } else {
+          // Even when receiptId is present, try a single fetch to update selections if server has canonical mapping
+          try {
+            final r = await ElecomVotingService.getLatestReceipt(sid);
+            final rid = r.$1;
+            final sels = r.$2;
+            if (rid != null && rid.isNotEmpty && sels.isNotEmpty) {
+              localId = rid;
+              snapshot = sels;
+            }
+          } catch (_) {}
+        }
         // Remember last receipt so it can be reopened from bottom nav
         if (localId != null) {
           UserSession.setLastReceipt(receiptId: localId, selections: snapshot);

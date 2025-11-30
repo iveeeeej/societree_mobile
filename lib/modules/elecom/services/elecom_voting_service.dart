@@ -140,13 +140,14 @@ class ElecomVotingService {
         };
         final res = await http
             .post(uri, headers: headers, body: body)
-            .timeout(const Duration(seconds: 25));
+            .timeout(const Duration(seconds: 35));
 
         final decoded = decodeJson(res.body);
         if (decoded is Map<String, dynamic>) {
           final ok = decoded['success'] ?? decoded['ok'] ?? decoded['status'];
           String msg = (decoded['message'] ?? decoded['error'] ?? '').toString();
-          String? voteId = (decoded['vote_id'] ?? decoded['id'])?.toString();
+          // Accept various id keys commonly used by backend
+          String? voteId = (decoded['receipt_id'] ?? decoded['vote_id'] ?? decoded['rid'] ?? decoded['id'])?.toString();
           if (ok is bool) return (ok, msg.isNotEmpty ? msg : (ok ? 'OK' : 'Failed'), voteId);
           if (ok is num) return (ok != 0, msg.isNotEmpty ? msg : ((ok != 0) ? 'OK' : 'Failed'), voteId);
           if (ok is String) {
@@ -164,6 +165,13 @@ class ElecomVotingService {
         }
         // Otherwise fallthrough to retry
       } catch (_) {
+        // On network error/timeouts, verify if the server actually recorded the vote
+        try {
+          final already = await checkAlreadyVotedDirect(studentId);
+          if (already) {
+            return (true, 'Already recorded', null);
+          }
+        } catch (_) {}
         // Will retry on next loop iteration
       }
     }
@@ -173,8 +181,9 @@ class ElecomVotingService {
   // Direct check if student already voted (no election id)
   static Future<bool> checkAlreadyVotedDirect(String studentId) async {
     try {
-      final uri = Uri.parse('$apiBaseUrl/check_already_voted.php?student_id=${Uri.encodeComponent(studentId)}');
-      final res = await http.get(uri).timeout(const Duration(seconds: 8));
+      final ts = DateTime.now().millisecondsSinceEpoch;
+      final uri = Uri.parse('$apiBaseUrl/check_already_voted.php?student_id=${Uri.encodeComponent(studentId)}&_t=$ts');
+      final res = await http.get(uri).timeout(const Duration(seconds: 10));
       final decoded = decodeJson(res.body);
       if (decoded is Map<String, dynamic>) {
         final v = decoded['already_voted'] ?? decoded['voted'] ?? decoded['data'];
