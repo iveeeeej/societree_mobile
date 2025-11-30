@@ -106,111 +106,151 @@ class ElecomDashboardContent extends StatelessWidget {
             ),
             const SizedBox(height: 24),
             Text(
-              'Election Countdown',
+              voted ? 'Status' : 'Election Countdown',
               style: theme.textTheme.titleLarge?.copyWith(
                 fontWeight: FontWeight.w700,
               ),
             ),
             const SizedBox(height: 12),
-            Container(
-              width: double.infinity,
-              padding: const EdgeInsets.all(20),
-              decoration: BoxDecoration(
-                gradient: const LinearGradient(
-                  begin: Alignment.topLeft,
-                  end: Alignment.bottomRight,
-                  colors: [
-                    Color(0xFF7B6CF6),
-                    Color(0xFFB07CF3),
-                    Color(0xFFE7B56A),
-                  ],
-                ),
-                borderRadius: BorderRadius.circular(20),
-                boxShadow: [
-                  BoxShadow(
-                    color: Colors.black.withOpacity(0.08),
-                    blurRadius: 16,
-                    offset: const Offset(0, 8),
-                  ),
-                ],
-              ),
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  Row(
-                    crossAxisAlignment: CrossAxisAlignment.center,
-                    children: [
-                      Expanded(
-                        child: Column(
-                          crossAxisAlignment: CrossAxisAlignment.start,
+            voted
+                ? Container(
+                    width: double.infinity,
+                    padding: const EdgeInsets.all(20),
+                    decoration: BoxDecoration(
+                      color: const Color(0xFF22C55E).withOpacity(0.12),
+                      borderRadius: BorderRadius.circular(20),
+                      boxShadow: [
+                        BoxShadow(
+                          color: Colors.black.withOpacity(0.04),
+                          blurRadius: 12,
+                          offset: const Offset(0, 6),
+                        ),
+                      ],
+                    ),
+                    child: Column(
+                      mainAxisSize: MainAxisSize.min,
+                      children: [
+                        Container(
+                          width: 56,
+                          height: 56,
+                          decoration: const BoxDecoration(
+                            color: Color(0xFF22C55E),
+                            shape: BoxShape.circle,
+                          ),
+                          child: const Icon(Icons.check, color: Colors.white, size: 32),
+                        ),
+                        const SizedBox(height: 12),
+                        Text(
+                          'Already voted',
+                          style: theme.textTheme.titleMedium?.copyWith(fontWeight: FontWeight.w700),
+                        ),
+                        const SizedBox(height: 4),
+                        Text(
+                          'Your vote has been recorded.',
+                          style: theme.textTheme.bodySmall,
+                        ),
+                      ],
+                    ),
+                  )
+                : Container(
+                    width: double.infinity,
+                    padding: const EdgeInsets.all(20),
+                    decoration: BoxDecoration(
+                      gradient: const LinearGradient(
+                        begin: Alignment.topLeft,
+                        end: Alignment.bottomRight,
+                        colors: [
+                          Color(0xFF7B6CF6),
+                          Color(0xFFB07CF3),
+                          Color(0xFFE7B56A),
+                        ],
+                      ),
+                      borderRadius: BorderRadius.circular(20),
+                      boxShadow: [
+                        BoxShadow(
+                          color: Colors.black.withOpacity(0.08),
+                          blurRadius: 16,
+                          offset: const Offset(0, 8),
+                        ),
+                      ],
+                    ),
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Row(
+                          crossAxisAlignment: CrossAxisAlignment.center,
                           children: [
-                            Text(
-                              'USTP-OROQUIETA Election',
-                              style: theme.textTheme.titleMedium?.copyWith(
-                                color: Colors.white,
-                                fontWeight: FontWeight.w700,
+                            Expanded(
+                              child: Column(
+                                crossAxisAlignment: CrossAxisAlignment.start,
+                                children: [
+                                  Text(
+                                    'USTP-OROQUIETA Election',
+                                    style: theme.textTheme.titleMedium?.copyWith(
+                                      color: Colors.white,
+                                      fontWeight: FontWeight.w700,
+                                    ),
+                                  ),
+                                  const SizedBox(height: 2),
+                                  Text(
+                                    'General Election to legislative assembly',
+                                    style: theme.textTheme.bodySmall?.copyWith(
+                                      color: Colors.white70,
+                                    ),
+                                    maxLines: 2,
+                                    overflow: TextOverflow.ellipsis,
+                                  ),
+                                ],
                               ),
-                            ),
-                            const SizedBox(height: 2),
-                            Text(
-                              'General Election to legislative assembly',
-                              style: theme.textTheme.bodySmall?.copyWith(
-                                color: Colors.white70,
-                              ),
-                              maxLines: 2,
-                              overflow: TextOverflow.ellipsis,
                             ),
                           ],
                         ),
-                      ),
-                    ],
-                  ),
-                  const SizedBox(height: 16),
-                  Row(
-                    children: [
-                      timePill(days.toString().padLeft(2, '0'), 'days'),
-                      const SizedBox(width: 8),
-                      timePill(hours.toString().padLeft(2, '0'), 'hours'),
-                      const SizedBox(width: 8),
-                      timePill(minutes.toString().padLeft(2, '0'), 'mins'),
-                      const SizedBox(width: 8),
-                      timePill(seconds.toString().padLeft(2, '0'), 'sec'),
-                    ],
-                  ),
-                  const SizedBox(height: 10),
-                  Text(
-                    days > 0
-                        ? 'You have $days days left to vote. Don\'t miss your chance!'
-                        : 'Voting closes soon!',
-                    style: theme.textTheme.bodySmall?.copyWith(
-                      color: const Color(0xFFFFE4E4),
+                        const SizedBox(height: 16),
+                        Row(
+                          children: [
+                            timePill(days.toString().padLeft(2, '0'), 'days'),
+                            const SizedBox(width: 8),
+                            timePill(hours.toString().padLeft(2, '0'), 'hours'),
+                            const SizedBox(width: 8),
+                            timePill(minutes.toString().padLeft(2, '0'), 'mins'),
+                            const SizedBox(width: 8),
+                            timePill(seconds.toString().padLeft(2, '0'), 'sec'),
+                          ],
+                        ),
+                        const SizedBox(height: 10),
+                        Text(
+                          days > 0
+                              ? 'You have $days days left to vote. Don\'t miss your chance!'
+                              : 'Voting closes soon!',
+                          style: theme.textTheme.bodySmall?.copyWith(
+                            color: const Color(0xFFFFE4E4),
+                          ),
+                        ),
+                        const SizedBox(height: 10),
+                        Align(
+                          alignment: Alignment.center,
+                          child: ElevatedButton(
+                            style: ElevatedButton.styleFrom(
+                              backgroundColor: const Color(0xFF6E63F6),
+                              foregroundColor: Colors.white,
+                              shape: RoundedRectangleBorder(
+                                borderRadius: BorderRadius.circular(12),
+                              ),
+                              padding: const EdgeInsets.symmetric(
+                                horizontal: 24,
+                                vertical: 12,
+                              ),
+                              elevation: 0,
+                            ),
+                            onPressed: () async {
+                              await openVoteFlow(context);
+                            },
+                            child: const Text('Vote Now'),
+                          ),
+                        ),
+                      ],
                     ),
                   ),
-                  const SizedBox(height: 10),
-                  Align(
-                    alignment: Alignment.center,
-                    child: ElevatedButton(
-                      style: ElevatedButton.styleFrom(
-                        backgroundColor: const Color(0xFF6E63F6),
-                        foregroundColor: Colors.white,
-                        shape: RoundedRectangleBorder(
-                          borderRadius: BorderRadius.circular(12),
-                        ),
-                        padding: const EdgeInsets.symmetric(
-                          horizontal: 24,
-                          vertical: 12,
-                        ),
-                        elevation: 0,
-                      ),
-                      onPressed: voted ? null : () async {
-                        await openVoteFlow(context);
-                      },
-                      child: const Text('Vote Now'),
-                    ),
-                  ),
-                ],
-              ),
-            ),
             const SizedBox(height: 16),
             Text(
               'Omnibus Code',

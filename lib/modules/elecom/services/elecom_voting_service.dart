@@ -39,32 +39,58 @@ class ElecomVotingService {
 
   // Direct voting (no election id). Server should accept student_id and selections JSON
   static Future<(bool ok, String message, String? receiptId)> submitDirectVote(String studentId, Map<String, String> selections) async {
-    try {
-      final uri = Uri.parse('$apiBaseUrl/submit_vote.php');
-      final body = {
-        'student_id': studentId,
-        'selections': jsonEncode(selections),
-      };
-      final res = await http.post(uri, body: body).timeout(const Duration(seconds: 15));
-      final decoded = decodeJson(res.body);
-      if (decoded is Map<String, dynamic>) {
-        final ok = decoded['success'] ?? decoded['ok'] ?? decoded['status'];
-        String msg = (decoded['message'] ?? decoded['error'] ?? '').toString();
-        String? voteId = (decoded['vote_id'] ?? decoded['id'])?.toString();
-        if (ok is bool) return (ok, msg.isNotEmpty ? msg : (ok ? 'OK' : 'Failed'), voteId);
-        if (ok is num) return (ok != 0, msg.isNotEmpty ? msg : ((ok != 0) ? 'OK' : 'Failed'), voteId);
-        if (ok is String) {
-          final success = ok == '1' || ok.toLowerCase() == 'true' || ok.toLowerCase() == 'success';
-          return (success, msg.isNotEmpty ? msg : (success ? 'OK' : 'Failed'), voteId);
-        }
-      }
-      // Debug: print server response to help diagnose failures
-      // ignore: avoid_print
-      print('[submitDirectVote] HTTP ${res.statusCode}: ${res.body}');
-      return (false, 'HTTP ${res.statusCode}', null);
-    } catch (e) {
-      return (false, 'Network error', null);
+    // Quick validation
+    if (studentId.isEmpty || selections.isEmpty) {
+      return (false, 'Missing data', null);
     }
+
+    // Retry with exponential backoff to handle slow/unstable connections
+    final attempts = [Duration(milliseconds: 0), const Duration(milliseconds: 900), const Duration(milliseconds: 1800)];
+    for (var i = 0; i < attempts.length; i++) {
+      if (attempts[i].inMilliseconds > 0) {
+        await Future.delayed(attempts[i]);
+      }
+      try {
+        final ts = DateTime.now().millisecondsSinceEpoch;
+        final uri = Uri.parse('$apiBaseUrl/submit_vote.php?_t=$ts');
+        final body = {
+          'student_id': studentId,
+          'selections': jsonEncode(selections),
+        };
+        final headers = {
+          'Content-Type': 'application/x-www-form-urlencoded',
+          'Accept': 'application/json, text/plain, */*',
+        };
+        final res = await http
+            .post(uri, headers: headers, body: body)
+            .timeout(const Duration(seconds: 25));
+
+        final decoded = decodeJson(res.body);
+        if (decoded is Map<String, dynamic>) {
+          final ok = decoded['success'] ?? decoded['ok'] ?? decoded['status'];
+          String msg = (decoded['message'] ?? decoded['error'] ?? '').toString();
+          String? voteId = (decoded['vote_id'] ?? decoded['id'])?.toString();
+          if (ok is bool) return (ok, msg.isNotEmpty ? msg : (ok ? 'OK' : 'Failed'), voteId);
+          if (ok is num) return (ok != 0, msg.isNotEmpty ? msg : ((ok != 0) ? 'OK' : 'Failed'), voteId);
+          if (ok is String) {
+            final success = ok == '1' || ok.toLowerCase() == 'true' || ok.toLowerCase() == 'success';
+            return (success, msg.isNotEmpty ? msg : (success ? 'OK' : 'Failed'), voteId);
+          }
+        }
+
+        // Debug aid
+        // ignore: avoid_print
+        print('[submitDirectVote] HTTP ${res.statusCode}: ${res.body}');
+        // If server responded but format unexpected, don't retry endlessly
+        if (res.statusCode >= 400 && res.statusCode < 500) {
+          return (false, 'HTTP ${res.statusCode}', null);
+        }
+        // Otherwise fallthrough to retry
+      } catch (_) {
+        // Will retry on next loop iteration
+      }
+    }
+    return (false, 'Network error', null);
   }
 
   // Direct check if student already voted (no election id)

@@ -407,8 +407,8 @@ class _ResultsChartsSheetState extends State<_ResultsChartsSheet> {
 
     // Build UI sections
     final sections = <Widget>[
-      // Summary charts at the top
-      _SummaryCharts(items: _items),
+      // Votes by Position chart at the top
+      _VotesByPositionChart(items: _items),
       const SizedBox(height: 12),
     ];
     for (final o in orgOrder) {
@@ -680,70 +680,113 @@ class _PhotoResolver {
   }
 }
 
-class _SummaryCharts extends StatelessWidget {
+class _VotesByPositionChart extends StatelessWidget {
   final List<_ResultItem> items;
-  const _SummaryCharts({required this.items});
+  const _VotesByPositionChart({required this.items});
 
   @override
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
-    // Totals per organization for pie chart
-    Map<String, int> byOrg = <String, int>{};
-    for (final r in items) {
-      final key = _orgKey(r.organization);
-      byOrg[key] = (byOrg[key] ?? 0) + r.votes;
+    // Normalize position keys similar to body ordering
+    String posKey(String s) {
+      final u = s.toUpperCase().trim();
+      if (u == 'PIO' || u == 'P.I.O' || u.contains('PUBLIC INFORMATION')) return 'Public Information Officer';
+      if (u.contains('VICE') && u.contains('PRES')) return 'Vice President';
+      if (u.contains('GENERAL') && u.contains('SEC')) return 'General Secretary';
+      if (u.contains('ASSOC') && u.contains('SEC')) return 'Associate Secretary';
+      if (u.contains('PRES')) return 'President';
+      if (u.contains('TREAS')) return 'Treasurer';
+      if (u.contains('AUDIT')) return 'Auditor';
+      if (u.contains('REP') && u.contains('IT')) return 'IT Representative';
+      if (u.contains('REP') && u.contains('BTLED')) return 'BTLED Representative';
+      if (u.contains('REP') && u.contains('BFPT')) return 'BFPT Representative';
+      return s.isEmpty ? '—' : s;
     }
-    final pieEntries = byOrg.entries.toList()
-      ..sort((a, b) => b.value.compareTo(a.value));
 
-    // Top 5 candidates for bar chart
-    final topCandidates = <String, int>{};
+    // Aggregate votes per position
+    final Map<String, int> byPos = {};
     for (final r in items) {
-      topCandidates[r.name] = (topCandidates[r.name] ?? 0) + r.votes;
+      final k = posKey(r.position);
+      byPos[k] = (byPos[k] ?? 0) + r.votes;
     }
-    final barEntries = topCandidates.entries.toList()
-      ..sort((a, b) => b.value.compareTo(a.value));
-    if (barEntries.length > 5) barEntries.removeRange(5, barEntries.length);
+    // Order by our canonical list first, then any remaining
+    const ordered = [
+      'President',
+      'Vice President',
+      'General Secretary',
+      'Associate Secretary',
+      'Treasurer',
+      'Auditor',
+      'Public Information Officer',
+      'IT Representative',
+      'BTLED Representative',
+      'BFPT Representative',
+    ];
+    final remaining = byPos.keys.where((k) => !ordered.contains(k)).toList()..sort();
+    final keys = [
+      ...ordered.where(byPos.containsKey),
+      ...remaining,
+    ];
+    if (keys.isEmpty) return const SizedBox.shrink();
 
-    final totalVotes = pieEntries.fold<int>(0, (s, e) => s + e.value);
+    final maxVotes = keys.map((k) => byPos[k] ?? 0).fold<int>(0, (m, v) => v > m ? v : m);
+    final blue = const Color(0xFF3B82F6);
 
-    return Row(
-      crossAxisAlignment: CrossAxisAlignment.start,
-      children: [
-        // Pie chart
-        Expanded(
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              Text('Votes by Org', style: theme.textTheme.labelLarge?.copyWith(fontWeight: FontWeight.w700)),
-              const SizedBox(height: 8),
-              SizedBox(height: 140, child: _PieChart(entries: pieEntries, totalVotes: totalVotes)),
-            ],
+    return Container(
+      decoration: BoxDecoration(
+        color: theme.colorScheme.surfaceVariant.withOpacity(0.35),
+        borderRadius: BorderRadius.circular(16),
+      ),
+      padding: const EdgeInsets.fromLTRB(12, 12, 12, 8),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Text('Votes by Position', style: theme.textTheme.titleMedium?.copyWith(fontWeight: FontWeight.w700)),
+          const SizedBox(height: 10),
+          SizedBox(
+            height: 190,
+            child: Row(
+              crossAxisAlignment: CrossAxisAlignment.end,
+              children: keys.map((k) {
+                final v = byPos[k] ?? 0;
+                final ratio = maxVotes == 0 ? 0.0 : (v / maxVotes);
+                return Expanded(
+                  child: Column(
+                    mainAxisAlignment: MainAxisAlignment.end,
+                    children: [
+                      Expanded(
+                        child: Align(
+                          alignment: Alignment.bottomCenter,
+                          child: AnimatedContainer(
+                            duration: const Duration(milliseconds: 500),
+                            curve: Curves.easeOut,
+                            width: 16,
+                            height: (ratio.clamp(0.0, 1.0)) * 140,
+                            decoration: BoxDecoration(
+                              color: blue,
+                              borderRadius: BorderRadius.circular(6),
+                            ),
+                          ),
+                        ),
+                      ),
+                      const SizedBox(height: 6),
+                      Transform.rotate(
+                        angle: -0.8,
+                        child: Text(
+                          k,
+                          textAlign: TextAlign.center,
+                          style: theme.textTheme.labelSmall,
+                        ),
+                      ),
+                    ],
+                  ),
+                );
+              }).toList(),
+            ),
           ),
-        ),
-        const SizedBox(width: 16),
-        // Bar chart
-        Expanded(
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              Text('Top Candidates', style: theme.textTheme.labelLarge?.copyWith(fontWeight: FontWeight.w700)),
-              const SizedBox(height: 8),
-              _BarChart(entries: barEntries, totalVotes: barEntries.fold<int>(0, (s, e) => s + e.value)),
-            ],
-          ),
-        ),
-      ],
+        ],
+      ),
     );
-  }
-
-  static String _orgKey(String s) {
-    final u = s.toUpperCase();
-    if (u.contains('USG')) return 'USG';
-    if (u.contains('SITE')) return 'SITE';
-    if (u.contains('PAFE')) return 'PAFE';
-    if (u.contains('AFPR')) return 'AFPROTECHS';
-    return s.isEmpty ? 'OTHER' : s;
   }
 }
 

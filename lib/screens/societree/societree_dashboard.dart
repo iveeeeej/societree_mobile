@@ -410,7 +410,8 @@ class _SocieTreeDashboardState extends State<SocieTreeDashboard> {
                           return _OrgCard(
                             item: it,
                             onTap: () {
-                              final isElecom = it.name.toUpperCase() == 'ELECOM';
+                              final nameU = it.name.toUpperCase();
+                              final isElecom = nameU == 'ELECOM' || nameU == 'PAFE' || nameU == 'SITE';
                               Navigator.of(context).push(
                                 MaterialPageRoute(
                                   builder: (_) => isElecom

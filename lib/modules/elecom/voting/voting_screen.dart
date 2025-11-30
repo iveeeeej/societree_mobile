@@ -20,6 +20,7 @@ class _VotingScreenState extends State<VotingScreen> {
   List<Map<String, dynamic>> _candidates = const [];
   final Map<String, String> _selections = {};
   List<String> _allowedOrgs = const ['USG'];
+  bool _submitting = false;
 
   // Normalizers to align backend strings with our canonical labels
   String _normOrg(String s) {
@@ -29,6 +30,14 @@ class _VotingScreenState extends State<VotingScreen> {
     if (u.contains('PAFE')) return 'PAFE';
     if (u.contains('AFPROTECHS') || u.contains('APFROTECHS')) return 'APFROTECHS';
     return s.toUpperCase().trim();
+  }
+
+  String _buildLocalReceiptId(String sid, Map<String, String> selections) {
+    final ts = DateTime.now().millisecondsSinceEpoch;
+    final s = sid.replaceAll(RegExp(r'[^A-Za-z0-9]'), '');
+    final short = s.length > 4 ? s.substring(s.length - 4) : s;
+    final count = selections.length.toString().padLeft(2, '0');
+    return 'RID-${short.isEmpty ? 'USER' : short}-$count-$ts';
   }
 
   Future<String?> _resolvePhoto(String name, String photoUrl) async {
@@ -187,39 +196,69 @@ class _VotingScreenState extends State<VotingScreen> {
                           const SizedBox(height: 8),
                           ConstrainedBox(
                             constraints: const BoxConstraints(maxHeight: 420),
-                            child: Scrollbar(
-                              thumbVisibility: true,
-                              child: ListView.separated(
-                                shrinkWrap: true,
-                                itemCount: (() {
-                                  final entries = _selections.entries.toList()
-                                    ..sort((a, b) => a.key.toLowerCase().compareTo(b.key.toLowerCase()));
-                                  return entries.length;
-                                })(),
-                                separatorBuilder: (_, __) => const Divider(height: 1),
-                                itemBuilder: (_, i) {
-                                  final entries = _selections.entries.toList()
-                                    ..sort((a, b) => a.key.toLowerCase().compareTo(b.key.toLowerCase()));
-                                  final e = entries[i];
-                                  final posKey = e.key;
-                                  final cid = e.value;
-                                  Map<String, dynamic> cand = const {};
-                                  for (final c in _candidates) {
-                                    final id = (c['id'] ?? '').toString();
-                                    if (id == cid) { cand = c; break; }
-                                  }
-                                  final name = (cand['name'] ?? '').toString();
-                                  final org = (cand['organization'] ?? '').toString();
-                                  final parts = posKey.split('::');
-                                  final prettyPos = parts.length == 2 ? '${parts[0]} — ${parts[1]}' : posKey;
-                                  return ListTile(
-                                    dense: true,
-                                    contentPadding: EdgeInsets.zero,
-                                    title: Text(prettyPos, style: Theme.of(ctx).textTheme.bodyLarge?.copyWith(fontWeight: FontWeight.w600)),
-                                    subtitle: Text([name, if (org.isNotEmpty) '($org)'].join(' ')),
-                                  );
-                                },
-                              ),
+                            child: Builder(
+                              builder: (_) {
+                                // Build a single sorted list of selections
+                                final sorted = _selections.entries.toList();
+                                int orgPri(String org) {
+                                  final o = _normOrg(org);
+                                  if (o == 'USG') return 0; if (o == 'SITE') return 1; if (o == 'PAFE') return 2; if (o == 'APFROTECHS') return 3; return 99;
+                                }
+                                const usgPositions = <String>['President','Vice President','General Secretary','Associate Secretary','Treasurer','Auditor','P.I.O','IT Representative','BTLED Representative','BFPT Representative'];
+                                const deptPositions = <String>['President','Vice President','General Secretary','Associate Secretary','Treasurer','Auditor','P.I.O'];
+                                int posPri(String org, String pos) {
+                                  final list = _normOrg(org) == 'USG' ? usgPositions : deptPositions;
+                                  final i = list.indexOf(_normPos(pos));
+                                  return i >= 0 ? i : 99;
+                                }
+                                String orgOf(MapEntry<String, String> e) {
+                                  final parts = e.key.split('::');
+                                  return parts.length == 2 ? parts[0] : '';
+                                }
+                                String posOf(MapEntry<String, String> e) {
+                                  final parts = e.key.split('::');
+                                  return parts.length == 2 ? parts[1] : e.key;
+                                }
+                                sorted.sort((a, b) {
+                                  final c1 = orgPri(orgOf(a)).compareTo(orgPri(orgOf(b)));
+                                  if (c1 != 0) return c1;
+                                  return posPri(orgOf(a), posOf(a)).compareTo(posPri(orgOf(b), posOf(b)));
+                                });
+
+                                return ListView.separated(
+                                  shrinkWrap: true,
+                                  itemCount: sorted.length,
+                                  separatorBuilder: (_, i) {
+                                    if (i < 0 || i >= sorted.length - 1) return const Divider(height: 1);
+                                    final aOrg = orgOf(sorted[i]);
+                                    final bOrg = orgOf(sorted[i + 1]);
+                                    if (_normOrg(aOrg) != _normOrg(bOrg)) {
+                                      return const SizedBox(height: 12);
+                                    }
+                                    return const Divider(height: 1);
+                                  },
+                                  itemBuilder: (_, i) {
+                                    final e = sorted[i];
+                                    final posKey = e.key;
+                                    final cid = e.value;
+                                    Map<String, dynamic> cand = const {};
+                                    for (final c in _candidates) {
+                                      final id = (c['id'] ?? '').toString();
+                                      if (id == cid) { cand = c; break; }
+                                    }
+                                    final name = (cand['name'] ?? '').toString();
+                                    final org = (cand['organization'] ?? '').toString();
+                                    final parts = posKey.split('::');
+                                    final prettyPos = parts.length == 2 ? '${parts[0]} — ${parts[1]}' : posKey;
+                                    return ListTile(
+                                      dense: true,
+                                      contentPadding: EdgeInsets.zero,
+                                      title: Text(prettyPos, style: Theme.of(context).textTheme.bodyLarge?.copyWith(fontWeight: FontWeight.w600)),
+                                      subtitle: Text([name, if (org.isNotEmpty) '($org)'].join(' ')),
+                                    );
+                                  },
+                                );
+                              },
                             ),
                           ),
                         ],
@@ -247,22 +286,85 @@ class _VotingScreenState extends State<VotingScreen> {
       ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Please login to vote.')));
       return;
     }
-    final (ok, msg, receiptId) = await ElecomVotingService.submitDirectVote(sid, _selections);
-    if (!mounted) return;
-    if (ok) {
-      // Navigate to receipt screen with selections snapshot
-      final snapshot = Map<String, String>.from(_selections);
-      await Navigator.of(context).pushReplacement(
-        MaterialPageRoute(
-          builder: (_) => VotingReceiptScreen(
-            receiptId: receiptId ?? '-',
-            selections: snapshot,
-          ),
-        ),
+
+    if (mounted) setState(() => _submitting = true);
+    // Show a small blocking progress dialog while submitting
+    if (mounted) {
+      showDialog(
+        context: context,
+        barrierDismissible: false,
+        builder: (_) {
+          final theme = Theme.of(context);
+          return Dialog(
+            insetPadding: const EdgeInsets.symmetric(horizontal: 80),
+            shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+            child: Padding(
+              padding: const EdgeInsets.symmetric(horizontal: 18, vertical: 16),
+              child: Row(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  const SizedBox(width: 24, height: 24, child: CircularProgressIndicator(strokeWidth: 3)),
+                  const SizedBox(width: 12),
+                  Flexible(
+                    child: Text(
+                      'Submitting your vote...',
+                      style: theme.textTheme.bodyMedium?.copyWith(fontWeight: FontWeight.w600),
+                    ),
+                  ),
+                ],
+              ),
+            ),
+          );
+        },
       );
-    } else {
+    }
+    try {
+      // First attempt
+      var (ok, msg, receiptId) = await ElecomVotingService.submitDirectVote(sid, _selections);
+      if (!mounted) return;
+      if (!ok) {
+        final lower = msg.toLowerCase();
+        // If backend says already voted, or network failed but server recorded, treat as success
+        if (lower.contains('already')) {
+          ok = true;
+        } else {
+          // Network or unknown error: verify status, then retry once
+          final already = await ElecomVotingService.checkAlreadyVotedDirect(sid);
+          if (already) {
+            ok = true;
+          } else {
+            // Retry once
+            final r2 = await ElecomVotingService.submitDirectVote(sid, _selections);
+            ok = r2.$1; msg = r2.$2; receiptId = r2.$3 ?? receiptId;
+          }
+        }
+      }
+
+      if (ok) {
+        // Navigate to receipt screen with selections snapshot (even if receiptId is missing)
+        final snapshot = Map<String, String>.from(_selections);
+        final localId = (receiptId == null || receiptId.isEmpty) ? _buildLocalReceiptId(sid, snapshot) : receiptId;
+        await Navigator.of(context).pushReplacement(
+          MaterialPageRoute(
+            builder: (_) => VotingReceiptScreen(
+              receiptId: localId ?? '-',
+              selections: snapshot,
+            ),
+          ),
+        );
+        return;
+      }
+
+      // Still failing here
       final text = (msg.isNotEmpty) ? 'Failed to submit vote: ' + msg : 'Failed to submit vote.';
-      ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(text)));
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(text)));
+      }
+    } finally {
+      if (mounted && Navigator.of(context).canPop()) {
+        Navigator.of(context).pop(); // close progress dialog
+      }
+      if (mounted) setState(() => _submitting = false);
     }
   }
 
@@ -499,7 +601,7 @@ class _VotingScreenState extends State<VotingScreen> {
                       child: SizedBox(
                         width: double.infinity,
                         child: FilledButton.icon(
-                          onPressed: _selections.isEmpty ? null : _submit,
+                          onPressed: _selections.isEmpty || _submitting ? null : _submit,
                           icon: const Icon(Icons.fact_check_outlined),
                           label: const Text('Review & Submit'),
                         ),

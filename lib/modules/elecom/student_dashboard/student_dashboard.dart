@@ -5,6 +5,8 @@ import 'package:flutter/physics.dart';
 import 'dart:async';
 import 'dart:ui';
 import 'services/student_dashboard_service.dart';
+import '../services/elecom_voting_service.dart';
+import '../../../services/user_session.dart';
 import 'widgets/student_dashboard_appbar.dart';
 import 'widgets/student_bottom_nav_bar.dart';
 import 'widgets/elecom_dashboard_content.dart';
@@ -120,6 +122,7 @@ class _StudentDashboardState extends State<StudentDashboard> {
     _ticker = Timer.periodic(const Duration(seconds: 1), (_) => _tick());
     _loadParties();
     _loadCandidates();
+    _checkVotedStatus();
     _scrollController = ScrollController();
     _scrollController!.addListener(_onScroll);
   }
@@ -190,7 +193,18 @@ class _StudentDashboardState extends State<StudentDashboard> {
   }
 
   Future<void> _refreshData() async {
-    await Future.wait([_loadParties(), _loadCandidates()]);
+    await Future.wait([_loadParties(), _loadCandidates(), _checkVotedStatus()]);
+  }
+
+  Future<void> _checkVotedStatus() async {
+    final sid = UserSession.studentId ?? '';
+    if (sid.isEmpty) return;
+    try {
+      final already = await ElecomVotingService.checkAlreadyVotedDirect(sid);
+      if (mounted) setState(() => _voted = already);
+    } catch (_) {
+      // Keep previous state on network error
+    }
   }
 
   @override
