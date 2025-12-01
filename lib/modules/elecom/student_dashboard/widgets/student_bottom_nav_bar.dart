@@ -2140,15 +2140,10 @@ class _DirectVoteContentState extends State<_DirectVoteContent> {
                 }
               }
               if (ok && mounted) {
-                // Notify the user (fire-and-forget)
-                ElecomVotingService.addUserNotification(
-                  sid,
-                  title: 'Vote submitted',
-                  body: 'Your vote has been recorded.',
-                  type: 'success',
-                );
                 Navigator.of(context).pop();
                 ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Vote submitted successfully.')));
+                // Pull in the new server-side notification immediately
+                _refreshNotifications();
               } else if (mounted) {
                 final isAlready = msg.toLowerCase().contains('already');
                 if (isAlready) {

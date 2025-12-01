@@ -158,17 +158,30 @@ try {
   @ $mysqli->query("CREATE TABLE IF NOT EXISTS user_notifications (
     id BIGINT UNSIGNED NOT NULL AUTO_INCREMENT,
     student_id VARCHAR(64) NOT NULL,
+    receipt_id VARCHAR(64) NULL,
     type VARCHAR(32) NOT NULL DEFAULT 'info',
     title VARCHAR(255) NOT NULL,
     body TEXT NULL,
     created_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
     read_at TIMESTAMP NULL DEFAULT NULL,
     PRIMARY KEY (id),
+    UNIQUE KEY uniq_student_receipt (student_id, receipt_id),
     KEY idx_student_created (student_id, created_at)
   ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4");
-  if ($n = $mysqli->prepare('INSERT INTO user_notifications (student_id, type, title, body) VALUES (?, "success", "Vote submitted", ?)')) {
+  // Migration: add receipt_id column and unique index on existing installations
+  try {
+    if ($chk = @$mysqli->query("SELECT 1 FROM INFORMATION_SCHEMA.COLUMNS WHERE TABLE_SCHEMA = DATABASE() AND TABLE_NAME = 'user_notifications' AND COLUMN_NAME = 'receipt_id' LIMIT 1")) {
+      $hasCol = $chk->num_rows > 0; $chk->close();
+      if (!$hasCol) { @ $mysqli->query("ALTER TABLE user_notifications ADD COLUMN receipt_id VARCHAR(64) NULL"); }
+    }
+    if ($idx = @$mysqli->query("SHOW INDEX FROM user_notifications WHERE Key_name = 'uniq_student_receipt'")) {
+      $hasIdx = $idx->num_rows > 0; $idx->close();
+      if (!$hasIdx) { @ $mysqli->query("ALTER TABLE user_notifications ADD UNIQUE KEY uniq_student_receipt (student_id, receipt_id)"); }
+    }
+  } catch (Exception $e) { /* ignore */ }
+  if ($n = $mysqli->prepare('INSERT INTO user_notifications (student_id, receipt_id, type, title, body) VALUES (?, ?, "success", "Vote submitted", ?) ON DUPLICATE KEY UPDATE id = id')) {
     $nb = 'Your vote has been recorded. Receipt: ' . $receipt_id;
-    $n->bind_param('ss', $student_id, $nb);
+    $n->bind_param('sss', $student_id, $receipt_id, $nb);
     @$n->execute();
     $n->close();
   }

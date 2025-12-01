@@ -414,13 +414,6 @@ class _VotingScreenState extends State<VotingScreen> {
           } catch (_) {}
         }
 
-        // Fire-and-forget: notify the user
-        ElecomVotingService.addUserNotification(
-          sid,
-          title: 'Vote submitted',
-          body: 'Your vote has been recorded. Receipt: ' + (localId ?? ''),
-          type: 'success',
-        );
         // Remember last receipt so it can be reopened from bottom nav
         if (localId != null) {
           UserSession.setLastReceipt(receiptId: localId, selections: snapshot);
