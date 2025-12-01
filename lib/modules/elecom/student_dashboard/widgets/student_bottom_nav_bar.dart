@@ -358,33 +358,40 @@ class _ResultsChartsSheetState extends State<_ResultsChartsSheet> {
     _startAutoRefresh();
   }
 
-  Future<void> _load() async {
+  Future<void> _load({bool silent = false}) async {
+    if (!silent) {
+      setState(() {
+        _loading = true;
+        _error = null;
+      });
+    }
     try {
       final studentId = UserSession.studentId ?? '';
-      // Fetch elections to determine context. If none, try direct results.
       final elections = await ElecomVotingService.getElections(studentId);
       String? electionId = elections.isNotEmpty ? (elections.first['id']?.toString() ?? elections.first['election_id']?.toString()) : null;
 
-      // Try to fetch results; backend endpoint assumed as get_election_results.php
       final results = await _fetchResults(electionId: electionId);
       if (!mounted) return;
       setState(() {
         _items = results;
-        _loading = false;
+        if (!silent) _loading = false;
       });
     } catch (e) {
       if (!mounted) return;
-      setState(() {
-        _error = 'Unable to load results at the moment.';
-        _loading = false;
-      });
+      if (!silent) {
+        setState(() {
+          _error = 'Unable to load results at the moment.';
+          _loading = false;
+        });
+      }
+      // On silent refresh failure, keep current UI without changing state
     }
   }
 
   void _startAutoRefresh() {
     _refreshTimer?.cancel();
-    _refreshTimer = Timer.periodic(const Duration(seconds: 5), (_) {
-      if (mounted) _load();
+    _refreshTimer = Timer.periodic(const Duration(seconds: 12), (_) {
+      if (mounted) _load(silent: true);
     });
   }
 
@@ -856,60 +863,84 @@ class _VotesByPositionChart extends StatelessWidget {
     final maxVotes = keys.map((k) => byPos[k] ?? 0).fold<int>(0, (m, v) => v > m ? v : m);
     final blue = const Color(0xFF3B82F6);
 
-    return Container(
-      decoration: BoxDecoration(
-        color: theme.colorScheme.surfaceVariant.withOpacity(0.35),
-        borderRadius: BorderRadius.circular(16),
-      ),
-      padding: const EdgeInsets.fromLTRB(12, 12, 12, 8),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          Text('Votes by Position', style: theme.textTheme.titleMedium?.copyWith(fontWeight: FontWeight.w700)),
-          const SizedBox(height: 10),
-          SizedBox(
-            height: 190,
-            child: Row(
-              crossAxisAlignment: CrossAxisAlignment.end,
-              children: keys.map((k) {
-                final v = byPos[k] ?? 0;
-                final ratio = maxVotes == 0 ? 0.0 : (v / maxVotes);
-                return Expanded(
-                  child: Column(
-                    mainAxisAlignment: MainAxisAlignment.end,
-                    children: [
-                      Expanded(
-                        child: Align(
-                          alignment: Alignment.bottomCenter,
-                          child: AnimatedContainer(
-                            duration: const Duration(milliseconds: 500),
-                            curve: Curves.easeOut,
-                            width: 16,
-                            height: (ratio.clamp(0.0, 1.0)) * 140,
-                            decoration: BoxDecoration(
-                              color: blue,
-                              borderRadius: BorderRadius.circular(6),
+    // Chart title + horizontally scrollable area that contains
+    // (1) the rounded container with bars only
+    // (2) the labels row rendered OUTSIDE the container to keep the bar baseline balanced
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Text('Votes by Position', style: theme.textTheme.titleMedium?.copyWith(fontWeight: FontWeight.w700)),
+        const SizedBox(height: 10),
+        SingleChildScrollView(
+          scrollDirection: Axis.horizontal,
+          physics: const BouncingScrollPhysics(),
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              // Bars inside a rounded container
+              Container(
+                decoration: BoxDecoration(
+                  color: theme.colorScheme.surfaceVariant.withOpacity(0.35),
+                  borderRadius: BorderRadius.circular(16),
+                ),
+                padding: const EdgeInsets.fromLTRB(12, 12, 12, 12),
+                child: SizedBox(
+                  height: 170,
+                  child: Row(
+                    crossAxisAlignment: CrossAxisAlignment.end,
+                    children: keys.map((k) {
+                      final v = byPos[k] ?? 0;
+                      final ratio = maxVotes == 0 ? 0.0 : (v / maxVotes);
+                      return Padding(
+                        padding: const EdgeInsets.symmetric(horizontal: 6),
+                        child: SizedBox(
+                          width: 64,
+                          child: Align(
+                            alignment: Alignment.bottomCenter,
+                            child: AnimatedContainer(
+                              duration: const Duration(milliseconds: 500),
+                              curve: Curves.easeOut,
+                              width: 20,
+                              height: (ratio.clamp(0.0, 1.0)) * 150,
+                              decoration: BoxDecoration(
+                                color: blue,
+                                borderRadius: BorderRadius.circular(6),
+                              ),
                             ),
                           ),
                         ),
-                      ),
-                      const SizedBox(height: 6),
-                      Transform.rotate(
-                        angle: -0.8,
+                      );
+                    }).toList(),
+                  ),
+                ),
+              ),
+              const SizedBox(height: 8),
+              // Labels outside the container but aligned with bars
+              Row(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: keys.map((k) {
+                  return Padding(
+                    padding: const EdgeInsets.symmetric(horizontal: 6),
+                    child: SizedBox(
+                      width: 64,
+                      child: Tooltip(
+                        message: k,
                         child: Text(
                           k,
                           textAlign: TextAlign.center,
+                          maxLines: 2,
+                          overflow: TextOverflow.ellipsis,
                           style: theme.textTheme.labelSmall,
                         ),
                       ),
-                    ],
-                  ),
-                );
-              }).toList(),
-            ),
+                    ),
+                  );
+                }).toList(),
+              ),
+            ],
           ),
-        ],
-      ),
+        ),
+      ],
     );
   }
 }

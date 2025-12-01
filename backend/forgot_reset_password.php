@@ -43,7 +43,7 @@ if ($sel = $mysqli->prepare('SELECT id, otp_code, otp_expires_at FROM users WHER
     }
     $now = time();
     $exp = strtotime($otp_expires_at);
-    if (!hash_equals($otp_code, $otp)) {
+    if (!password_verify($otp, $otp_code)) {
       http_response_code(401);
       echo json_encode(['success'=>false,'message'=>'Invalid OTP']);
       $mysqli->close();

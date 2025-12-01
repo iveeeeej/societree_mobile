@@ -68,7 +68,7 @@ function db_connect() {
       position VARCHAR(128) NULL,
       phone VARCHAR(32) NULL,
       email VARCHAR(255) NULL,
-      otp_code VARCHAR(16) NULL,
+      otp_code VARCHAR(255) NULL,
       otp_expires_at DATETIME NULL,
       terms_accepted_at DATETIME NULL,
       created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
@@ -169,8 +169,10 @@ function db_connect() {
     @$mysqli->query("ALTER TABLE users ADD COLUMN email VARCHAR(255) NULL");
   }
   if (!$hasColumn($mysqli, 'users', 'otp_code')) {
-    @$mysqli->query("ALTER TABLE users ADD COLUMN otp_code VARCHAR(16) NULL");
+    @$mysqli->query("ALTER TABLE users ADD COLUMN otp_code VARCHAR(255) NULL");
   }
+  // Ensure otp_code column is wide enough for bcrypt hashes
+  @$mysqli->query("ALTER TABLE users MODIFY COLUMN otp_code VARCHAR(255) NULL");
   if (!$hasColumn($mysqli, 'users', 'otp_expires_at')) {
     @$mysqli->query("ALTER TABLE users ADD COLUMN otp_expires_at DATETIME NULL");
   }

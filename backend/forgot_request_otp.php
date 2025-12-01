@@ -165,10 +165,11 @@ if ($uid !== null) {
     if ($channel === 'email' && !$recipientEmail) { http_response_code(422); echo json_encode(['success'=>false,'message'=>'No email on file for this user','channel'=>$channel]); $mysqli->close(); exit(); }
     if ($channel === 'sms' && !$recipientPhone) { http_response_code(422); echo json_encode(['success'=>false,'message'=>'No phone on file for this user','channel'=>$channel]); $mysqli->close(); exit(); }
     $otp = str_pad((string)random_int(0, 999999), 6, '0', STR_PAD_LEFT);
+    $otp_hash = password_hash($otp, PASSWORD_BCRYPT);
     $expires = date('Y-m-d H:i:s', time() + 10 * 60);
     $updated = 0; $perr = null;
     if ($upd = $mysqli->prepare('UPDATE users SET otp_code = ?, otp_expires_at = ? WHERE id = ?')) {
-      $upd->bind_param('ssi', $otp, $expires, $uid);
+      $upd->bind_param('ssi', $otp_hash, $expires, $uid);
       if (!$upd->execute()) { $perr = $mysqli->error; }
       $updated = $upd->affected_rows;
       $upd->close();
