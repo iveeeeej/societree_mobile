@@ -98,114 +98,7 @@ class StudentBottomNavBar {
                           return;
                         }
 
-  Future<void> _openWinnersSheet(BuildContext context) async {
-    final currentIsDarkMode = themeNotifier.isDarkMode;
-    await showModalBottomSheet(
-      context: context,
-      isScrollControlled: true,
-      backgroundColor: Colors.transparent,
-      builder: (ctx) {
-        final theme = Theme.of(ctx);
-        final sheetColor = currentIsDarkMode ? const Color(0xFF121212) : theme.scaffoldBackgroundColor;
-
-        Future<Map<String, String>> loadSummary() async {
-          final sid = UserSession.studentId ?? '';
-          if (sid.isEmpty) return {'title': 'Winners', 'body': 'Login required.'};
-          try {
-            final res = await http
-                .post(Uri.parse('$apiBaseUrl/user_results_summary.php'), body: {'student_id': sid})
-                .timeout(const Duration(seconds: 10));
-            final json = ElecomVotingService.decodeJson(res.body);
-            if (json is Map && json['success'] == true) {
-              final title = (json['title'] ?? 'Winners').toString();
-              final body = (json['body'] ?? '').toString();
-              return {'title': title, 'body': body};
-            }
-          } catch (_) {}
-          return {'title': 'Winners', 'body': ''};
-        }
-
-        return Stack(
-          children: [
-            Positioned.fill(
-              child: BackdropFilter(
-                filter: ImageFilter.blur(sigmaX: 8, sigmaY: 8),
-                child: Container(color: Colors.black.withOpacity(0.15)),
-              ),
-            ),
-            DraggableScrollableSheet(
-              expand: false,
-              initialChildSize: 0.9,
-              maxChildSize: 0.95,
-              minChildSize: 0.5,
-              builder: (_, controller) {
-                return Container(
-                  decoration: const BoxDecoration(
-                    borderRadius: BorderRadius.vertical(top: Radius.circular(16)),
-                  ),
-                  clipBehavior: Clip.antiAlias,
-                  child: Material(
-                    color: sheetColor,
-                    child: SafeArea(
-                      top: false,
-                      child: Padding(
-                        padding: const EdgeInsets.fromLTRB(16, 12, 16, 24),
-                        child: FutureBuilder<Map<String, String>>(
-                          future: loadSummary(),
-                          builder: (context, snap) {
-                            final loading = snap.connectionState != ConnectionState.done;
-                            final title = snap.data?['title'] ?? 'Winners';
-                            final body = snap.data?['body'] ?? '';
-                            final lines = body
-                                .replaceAll('\r', '')
-                                .split('\n')
-                                .map((s) => s.trim())
-                                .where((s) => s.isNotEmpty)
-                                .toList();
-
-                            return Column(
-                              crossAxisAlignment: CrossAxisAlignment.start,
-                              children: [
-                                Row(
-                                  children: [
-                                    Icon(Icons.emoji_events_outlined, color: Colors.amber[700]),
-                                    const SizedBox(width: 8),
-                                    Text(title, style: theme.textTheme.titleLarge?.copyWith(fontWeight: FontWeight.w700)),
-                                    const Spacer(),
-                                    IconButton(icon: const Icon(Icons.close), onPressed: () => Navigator.of(ctx).pop()),
-                                  ],
-                                ),
-                                const SizedBox(height: 8),
-                                if (loading) const Expanded(child: Center(child: CircularProgressIndicator()))
-                                else Expanded(
-                                  child: ListView.builder(
-                                    controller: controller,
-                                    itemCount: lines.length,
-                                    itemBuilder: (_, i) {
-                                      final text = lines[i];
-                                      return ListTile(
-                                        dense: true,
-                                        leading: const Icon(Icons.check_circle_outline, color: Colors.green),
-                                        title: Text(text, style: theme.textTheme.bodyLarge),
-                                      );
-                                    },
-                                  ),
-                                ),
-                              ],
-                            );
-                          },
-                        ),
-                      ),
-                    ),
-                  ),
-                );
-              },
-            ),
-          ],
-        );
-      },
-    );
-  }
+ 
                         if (i == 2) {
                           if (_resultsVisible.value) {
                             _openWinnersSheet(context);
@@ -655,7 +548,7 @@ class StudentBottomNavBar {
                                                     if (Navigator.of(ctx).canPop()) Navigator.of(ctx).pop();
                                                     await Future.delayed(const Duration(milliseconds: 100));
                                                     if (context.mounted) {
-                                                      _openResultsSheet(context);
+                                                      _openWinnersSheet(context);
                                                     }
                                                   }
                                                 },
@@ -913,6 +806,116 @@ class StudentBottomNavBar {
     );
   }
 }
+
+Future<void> _openWinnersSheet(BuildContext context) async {
+    final currentIsDarkMode = themeNotifier.isDarkMode;
+    await showModalBottomSheet(
+      context: context,
+      isScrollControlled: true,
+      backgroundColor: Colors.transparent,
+      builder: (ctx) {
+        final theme = Theme.of(ctx);
+        final sheetColor = currentIsDarkMode ? const Color(0xFF121212) : theme.scaffoldBackgroundColor;
+
+        Future<Map<String, String>> loadSummary() async {
+          final sid = UserSession.studentId ?? '';
+          if (sid.isEmpty) return {'title': 'Winners', 'body': 'Login required.'};
+          try {
+            final res = await http
+                .post(Uri.parse('$apiBaseUrl/user_results_summary.php'), body: {'student_id': sid})
+                .timeout(const Duration(seconds: 10));
+            final json = ElecomVotingService.decodeJson(res.body);
+            if (json is Map && json['success'] == true) {
+              final title = (json['title'] ?? 'Winners').toString();
+              final body = (json['body'] ?? '').toString();
+              return {'title': title, 'body': body};
+            }
+          } catch (_) {}
+          return {'title': 'Winners', 'body': ''};
+        }
+
+        return Stack(
+          children: [
+            Positioned.fill(
+              child: BackdropFilter(
+                filter: ImageFilter.blur(sigmaX: 8, sigmaY: 8),
+                child: Container(color: Colors.black.withOpacity(0.15)),
+              ),
+            ),
+            DraggableScrollableSheet(
+              expand: false,
+              initialChildSize: 0.9,
+              maxChildSize: 0.95,
+              minChildSize: 0.5,
+              builder: (_, controller) {
+                return Container(
+                  decoration: const BoxDecoration(
+                    borderRadius: BorderRadius.vertical(top: Radius.circular(16)),
+                  ),
+                  clipBehavior: Clip.antiAlias,
+                  child: Material(
+                    color: sheetColor,
+                    child: SafeArea(
+                      top: false,
+                      child: Padding(
+                        padding: const EdgeInsets.fromLTRB(16, 12, 16, 24),
+                        child: FutureBuilder<Map<String, String>>(
+                          future: loadSummary(),
+                          builder: (context, snap) {
+                            final loading = snap.connectionState != ConnectionState.done;
+                            final title = snap.data?['title'] ?? 'Winners';
+                            final body = snap.data?['body'] ?? '';
+                            final lines = body
+                                .replaceAll('\r', '')
+                                .split('\n')
+                                .map((s) => s.trim())
+                                .where((s) => s.isNotEmpty)
+                                .toList();
+
+                            return Column(
+                              crossAxisAlignment: CrossAxisAlignment.start,
+                              children: [
+                                Row(
+                                  children: [
+                                    Icon(Icons.emoji_events_outlined, color: Colors.amber[700]),
+                                    const SizedBox(width: 8),
+                                    Text(title, style: theme.textTheme.titleLarge?.copyWith(fontWeight: FontWeight.w700)),
+                                    const Spacer(),
+                                    IconButton(icon: const Icon(Icons.close), onPressed: () => Navigator.of(ctx).pop()),
+                                  ],
+                                ),
+                                const SizedBox(height: 8),
+                                if (loading) const Expanded(child: Center(child: CircularProgressIndicator()))
+                                else Expanded(
+                                  child: ListView.builder(
+                                    controller: controller,
+                                    itemCount: lines.length,
+                                    itemBuilder: (_, i) {
+                                      final text = lines[i];
+                                      return ListTile(
+                                        dense: true,
+                                        leading: const Icon(Icons.check_circle_outline, color: Colors.green),
+                                        title: Text(text, style: theme.textTheme.bodyLarge),
+                                      );
+                                    },
+                                  ),
+                                ),
+                              ],
+                            );
+                          },
+                        ),
+                      ),
+                    ),
+                  ),
+                );
+              },
+            ),
+          ],
+        );
+      },
+    );
+  }
+
 
 // Background utility: fetch unread notifications count based on vote window updates
 Future<void> _refreshNotifications() async {
