@@ -1108,7 +1108,7 @@ class _ResultsChartsSheetState extends State<_ResultsChartsSheet> {
           children: [
             Row(
               children: [
-                Text('Election Results', style: theme.textTheme.titleLarge?.copyWith(fontWeight: FontWeight.w700)),
+                Text('Election Partial Results', style: theme.textTheme.titleLarge?.copyWith(fontWeight: FontWeight.w700)),
                 const Spacer(),
                 IconButton(
                   icon: const Icon(Icons.close),
