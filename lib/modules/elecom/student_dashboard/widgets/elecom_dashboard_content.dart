@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:centralized_societree/modules/elecom/student_dashboard/widgets/elecom_button.dart';
 import '../../omnibus_slideshow.dart';
 import '../../parties_candidates_grid.dart';
 import '../../things_to_know.dart';
@@ -40,7 +41,7 @@ class ElecomDashboardContent extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final days = remaining.inDays;
-    final hours = remaining.inHours.remainder(24);
+    final hours = remaining.inHours; // cumulative hours remaining
     final minutes = remaining.inMinutes.remainder(60);
     final seconds = remaining.inSeconds.remainder(60);
 
@@ -214,7 +215,7 @@ class ElecomDashboardContent extends StatelessWidget {
                           children: [
                             timePill(days.toString().padLeft(2, '0'), 'days'),
                             const SizedBox(width: 8),
-                            timePill(hours.toString().padLeft(2, '0'), 'hours'),
+                            timePill(hours.toString().padLeft(2, '0'), 'hrs'),
                             const SizedBox(width: 8),
                             timePill(minutes.toString().padLeft(2, '0'), 'mins'),
                             const SizedBox(width: 8),
@@ -237,21 +238,9 @@ class ElecomDashboardContent extends StatelessWidget {
                         const SizedBox(height: 10),
                         Align(
                           alignment: Alignment.center,
-                          child: ElevatedButton(
-                            style: ElevatedButton.styleFrom(
-                              backgroundColor: const Color(0xFF6E63F6),
-                              foregroundColor: Colors.white,
-                              shape: RoundedRectangleBorder(
-                                borderRadius: BorderRadius.circular(12),
-                              ),
-                              padding: const EdgeInsets.symmetric(
-                                horizontal: 24,
-                                vertical: 12,
-                              ),
-                              elevation: 0,
-                            ),
+                          child: ElecomButton.primary(
+                            label: canVote ? 'Vote Now' : (notStarted ? 'Not Started' : 'Voting Closed'),
                             onPressed: canVote ? () async { await openVoteFlow(context); } : null,
-                            child: Text(canVote ? 'Vote Now' : (notStarted ? 'Not Started' : 'Voting Closed')),
                           ),
                         ),
                       ],
@@ -277,16 +266,10 @@ class ElecomDashboardContent extends StatelessWidget {
                   ),
                 ),
                 if (parties.length > 3)
-                  TextButton.icon(
+                  ElecomButton.text(
+                    label: showAllParties ? 'See Less' : 'See All',
                     onPressed: () => onToggleShowAllParties(!showAllParties),
-                    icon: Icon(
-                      showAllParties
-                          ? Icons.keyboard_arrow_down
-                          : Icons.chevron_right,
-                      size: 18,
-                    ),
-                    label: Text(showAllParties ? 'See Less' : 'See All'),
-                    style: TextButton.styleFrom(padding: EdgeInsets.zero),
+                    icon: showAllParties ? Icons.keyboard_arrow_down : Icons.chevron_right,
                   ),
               ],
             ),
