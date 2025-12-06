@@ -2036,6 +2036,7 @@ class _PieChartPainter extends CustomPainter {
     final positions = data.$1;
     final candidates = data.$2;
     final Map<String, String> selections = {};
+    bool submitting = false;
     return showModalBottomSheet<bool>(
       context: context,
       isScrollControlled: true,
@@ -2105,14 +2106,109 @@ class _PieChartPainter extends CustomPainter {
                         SizedBox(
                           width: double.infinity,
                           child: FilledButton.icon(
-                            onPressed: selections.isEmpty ? null : () async {
-                              final ok = await _openReviewSheet(context, electionId, positions, candidates, selections);
-                              if (ok == true && context.mounted) {
-                                Navigator.of(context).pop(true); // close selection
+                            onPressed: (selections.isEmpty || submitting) ? null : () async {
+                              // Show confirm dialog directly without intermediate loading
+                              final proceed = await showDialog<bool>(
+                                context: context,
+                                barrierDismissible: true,
+                                builder: (ctx) {
+                                  return AlertDialog(
+                                    title: const Text('Confirm your vote'),
+                                    content: SizedBox(
+                                      width: double.maxFinite,
+                                      child: Column(
+                                        mainAxisSize: MainAxisSize.min,
+                                        crossAxisAlignment: CrossAxisAlignment.start,
+                                        children: [
+                                          const Text('Please review your selections:'),
+                                          const SizedBox(height: 8),
+                                          ConstrainedBox(
+                                            constraints: const BoxConstraints(maxHeight: 420),
+                                            child: ListView(
+                                              shrinkWrap: true,
+                                              children: positions.map((p) {
+                                                final selId = selections[p['id']];
+                                                final cand = candidates.firstWhere(
+                                                  (c) => c['id'] == selId,
+                                                  orElse: () => {'name': '—', 'photoUrl': ''},
+                                                );
+                                                return ListTile(
+                                                  dense: true,
+                                                  contentPadding: EdgeInsets.zero,
+                                                  title: Text(p['name'] ?? ''),
+                                                  subtitle: Text((cand['name'] ?? '').toString()),
+                                                );
+                                              }).toList(),
+                                            ),
+                                          ),
+                                        ],
+                                      ),
+                                    ),
+                                    actions: [
+                                      TextButton(onPressed: () => Navigator.of(ctx).pop(false), child: const Text('Cancel')),
+                                      FilledButton(onPressed: () => Navigator.of(ctx).pop(true), child: const Text('Submit')),
+                                    ],
+                                  );
+                                },
+                              );
+                              if (proceed != true) return;
+                              setStateSB(() { submitting = true; });
+                              final sid = UserSession.studentId ?? '';
+                              if (sid.isEmpty) {
+                                if (context.mounted) {
+                                  ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Please login to vote.')));
+                                }
+                                setStateSB(() { submitting = false; });
+                                return;
+                              }
+                              final (ok, msg) = await ElecomVotingService.submitFinalVote(
+                                electionId,
+                                sid,
+                                selections,
+                              );
+                              if (ok && context.mounted) {
+                                // Attempt to get official receipt; if unavailable, build local snapshot
+                                String receiptId = '-';
+                                Map<String, String> receiptSelections = const {};
+                                try {
+                                  final r = await ElecomVotingService.getLatestReceipt(sid);
+                                  if ((r.$1 != null && r.$1!.isNotEmpty) || r.$2.isNotEmpty) {
+                                    receiptId = r.$1 ?? '-';
+                                    receiptSelections = r.$2;
+                                  }
+                                } catch (_) {}
+                                if (receiptSelections.isEmpty) {
+                                  // Build a simple local snapshot using position names
+                                  final snap = <String, String>{};
+                                  for (final p in positions) {
+                                    final pid = p['id'];
+                                    if (pid != null && pid.isNotEmpty) {
+                                      final sel = selections[pid];
+                                      if (sel != null && sel.isNotEmpty) {
+                                        snap[p['name'] ?? pid] = sel;
+                                      }
+                                    }
+                                  }
+                                  receiptSelections = snap;
+                                }
+                                // Show receipt screen directly, replacing the sheet
+                                await Navigator.of(context).pushReplacement(
+                                  MaterialPageRoute(
+                                    builder: (_) => VotingReceiptScreen(
+                                      receiptId: receiptId,
+                                      selections: receiptSelections,
+                                      showThanksOnBack: true,
+                                    ),
+                                  ),
+                                );
+                              } else if (context.mounted) {
+                                final text = (msg.isNotEmpty) ? 'Failed to submit vote: ' + msg : 'Failed to submit vote.';
+                                ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(text)));
+                                setStateSB(() { submitting = false; });
                               }
                             },
                             icon: const Icon(Icons.fact_check_outlined),
-                            label: const Text('Review Vote'),
+                            label: const Text('Review & Submit'),
                           ),
                         )
                       ],

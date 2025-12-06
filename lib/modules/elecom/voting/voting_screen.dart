@@ -90,6 +90,19 @@ class _VotingScreenState extends State<VotingScreen> {
     return org;
   }
 
+  Future<bool> _waitAlreadyVoted(String sid, {int tries = 8, int delayMs = 900}) async {
+    for (var i = 0; i < tries; i++) {
+      try {
+        final already = await ElecomVotingService
+            .checkAlreadyVotedDirect(sid)
+            .timeout(const Duration(seconds: 8), onTimeout: () => false);
+        if (already) return true;
+      } catch (_) {}
+      await Future.delayed(Duration(milliseconds: delayMs));
+    }
+    return false;
+  }
+
   String _normPos(String s) {
     final t = s.toLowerCase().trim();
     // Detect representative roles first to avoid matching the 'pres' substring inside 'representative'
@@ -289,35 +302,8 @@ class _VotingScreenState extends State<VotingScreen> {
       ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Please login to vote.')));
       return;
     }
-    // If the server already recorded a vote (e.g., user re-enters or previous submit completed),
-    // skip submission and go straight to receipt.
-    try {
-      final already = await ElecomVotingService.checkAlreadyVotedDirect(sid);
-      if (already) {
-        try {
-          final r = await ElecomVotingService.getLatestReceipt(sid);
-          final rid = r.$1;
-          final sels = r.$2;
-          if (rid != null && rid.isNotEmpty && sels.isNotEmpty) {
-            if (!mounted) return;
-            await Navigator.of(context).pushReplacement(
-              MaterialPageRoute(
-                builder: (_) => VotingReceiptScreen(
-                  receiptId: rid,
-                  selections: sels,
-                  showThanksOnBack: true,
-                ),
-              ),
-            );
-            return;
-          }
-        } catch (_) {}
-        // If no receipt found yet, still proceed to submission flow below.
-      }
-    } catch (_) {}
-
+    // Immediately mark submitting and show a blocking progress dialog to avoid any perceived delay
     if (mounted) setState(() => _submitting = true);
-    // Show a small blocking progress dialog while submitting
     if (mounted) {
       showGeneralDialog<void>(
         context: context,
@@ -363,9 +349,39 @@ class _VotingScreenState extends State<VotingScreen> {
         transitionBuilder: (ctx, anim, _, child) => FadeTransition(opacity: anim, child: child),
       );
     }
+    // If the server already recorded a vote (e.g., user re-enters or previous submit completed),
+    // skip submission and go straight to receipt.
     try {
-      // First attempt
-      var (ok, msg, receiptId) = await ElecomVotingService.submitDirectVote(sid, _selections);
+      final already = await ElecomVotingService.checkAlreadyVotedDirect(sid);
+      if (already) {
+        try {
+          final r = await ElecomVotingService.getLatestReceipt(sid);
+          final rid = r.$1;
+          final sels = r.$2;
+          if (rid != null && rid.isNotEmpty && sels.isNotEmpty) {
+            if (!mounted) return;
+            await Navigator.of(context).pushReplacement(
+              MaterialPageRoute(
+                builder: (_) => VotingReceiptScreen(
+                  receiptId: rid,
+                  selections: sels,
+                  showThanksOnBack: true,
+                ),
+              ),
+            );
+            return;
+          }
+        } catch (_) {}
+        // If no receipt found yet, still proceed to submission flow below.
+      }
+    } catch (_) {}
+
+    // Progress dialog already shown above
+    try {
+      // First attempt with timeout; on timeout we'll verify status and proceed if recorded
+      var (ok, msg, receiptId) = await ElecomVotingService
+          .submitDirectVote(sid, _selections)
+          .timeout(const Duration(seconds: 15), onTimeout: () => (false, 'timeout', null));
       if (!mounted) return;
       if (!ok) {
         final lower = msg.toLowerCase();
@@ -374,13 +390,22 @@ class _VotingScreenState extends State<VotingScreen> {
           ok = true;
         } else {
           // Network or unknown error: verify status, then retry once
-          final already = await ElecomVotingService.checkAlreadyVotedDirect(sid);
+          final already = await ElecomVotingService
+              .checkAlreadyVotedDirect(sid)
+              .timeout(const Duration(seconds: 8), onTimeout: () => false);
           if (already) {
             ok = true;
           } else {
             // Retry once
-            final r2 = await ElecomVotingService.submitDirectVote(sid, _selections);
+            final r2 = await ElecomVotingService
+                .submitDirectVote(sid, _selections)
+                .timeout(const Duration(seconds: 15), onTimeout: () => (false, 'timeout', receiptId));
             ok = r2.$1; msg = r2.$2; receiptId = r2.$3 ?? receiptId;
+            if (!ok) {
+              // Final fallback: if server recorded while we retried, poll a few times
+              final becameTrue = await _waitAlreadyVoted(sid, tries: 8, delayMs: 900);
+              if (becameTrue) ok = true;
+            }
           }
         }
       }
@@ -433,14 +458,45 @@ class _VotingScreenState extends State<VotingScreen> {
         return;
       }
 
-      // Still failing here
+      // Still failing here: poll for latest receipt as last resort (backend may be slow to finalize)
+      try {
+        for (var i = 0; i < 10; i++) {
+          final r = await ElecomVotingService.getLatestReceipt(sid);
+          final rid = r.$1; final sels = r.$2;
+          if (rid != null && rid.isNotEmpty && sels.isNotEmpty) {
+            var snapshot = sels;
+            var localId = rid;
+            if (mounted) {
+              UserSession.setLastReceipt(receiptId: localId, selections: snapshot);
+              await Navigator.of(context).pushReplacement(
+                MaterialPageRoute(
+                  builder: (_) => VotingReceiptScreen(
+                    receiptId: localId,
+                    selections: snapshot,
+                    showThanksOnBack: true,
+                  ),
+                ),
+              );
+              return;
+            }
+          }
+          await Future.delayed(const Duration(milliseconds: 1000));
+        }
+      } catch (_) {}
+
+      // If we reach here, report failure
       final text = (msg.isNotEmpty) ? 'Failed to submit vote: ' + msg : 'Failed to submit vote.';
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(text)));
       }
     } finally {
-      if (mounted && Navigator.of(context).canPop()) {
-        Navigator.of(context).pop(); // close progress dialog
+      if (mounted) {
+        final nav = Navigator.of(context, rootNavigator: true);
+        if (nav.canPop()) {
+          nav.pop(); // close progress dialog (root)
+        } else if (Navigator.of(context).canPop()) {
+          Navigator.of(context).pop();
+        }
       }
       if (mounted) setState(() => _submitting = false);
     }
