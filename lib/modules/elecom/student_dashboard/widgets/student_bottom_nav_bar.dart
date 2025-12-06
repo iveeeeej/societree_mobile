@@ -25,8 +25,74 @@ class StudentBottomNavBar {
   // Results visibility for dynamic bottom bar labeling
   static final ValueNotifier<bool> _resultsVisible = ValueNotifier<bool>(false);
   static Timer? _windowTimer;
+  // Window-closed flag for immediate local gating
+  static final ValueNotifier<bool> _windowEnded = ValueNotifier<bool>(false);
+  // Window-not-started flag for instant gating
+  static final ValueNotifier<bool> _windowNotStarted = ValueNotifier<bool>(false);
   // Public: ping listeners when Home is tapped to trigger a refresh in dashboard parts that subscribe
   static final ValueNotifier<int> homeRefreshTick = ValueNotifier<int>(0);
+
+  static bool _truthy(dynamic v) {
+    if (v is bool) return v;
+    if (v is num) return v != 0;
+    if (v is String) {
+      final s = v.toLowerCase();
+      return s == '1' || s == 'true' || s == 'open' || s == 'yes' || s == 'allowed';
+    }
+    return false;
+  }
+
+  static bool _hasLocalReceipt(String sid) {
+    if (sid.isEmpty) return false;
+    if (UserSession.lastReceiptStudentId != sid) return false;
+    final ridAny = UserSession.lastReceiptId;
+    final selAny = UserSession.lastReceiptSelections;
+    bool hasId = false;
+    if (ridAny is num) {
+      hasId = (ridAny as num) > 0;
+    } else if (ridAny is String) {
+      final t = (ridAny as String).trim();
+      hasId = t.isNotEmpty && t != '0' && t.toLowerCase() != 'null';
+    }
+    bool hasSelections = false;
+    if (selAny is Iterable) {
+      hasSelections = (selAny as Iterable).isNotEmpty;
+    } else if (selAny is Map) {
+      hasSelections = (selAny as Map).isNotEmpty;
+    } else if (selAny is String) {
+      final t = (selAny as String).trim();
+      hasSelections = t.isNotEmpty && t != '[]' && t != '{}' && t.toLowerCase() != 'null';
+    }
+    return hasId && hasSelections;
+  }
+
+  static bool _isWithinWindow(String? start, String? end) {
+    if ((start == null || start.isEmpty) && (end == null || end.isEmpty)) return true;
+    DateTime? s, e;
+    try { if (start != null && start.isNotEmpty) s = DateTime.parse(start); } catch (_) {}
+    try { if (end != null && end.isNotEmpty) e = DateTime.parse(end); } catch (_) {}
+    final now = DateTime.now();
+    if (s != null && now.isBefore(s)) return false;
+    if (e != null && now.isAfter(e)) return false;
+    return true;
+  }
+
+  static Future<bool> _checkVotingOpen(String sid) async {
+    try {
+      final list = await ElecomVotingService.getVotingStatus(sid);
+      if (list.isEmpty) return false; // strict: consider closed when no data
+      for (final m in list) {
+        final open = _truthy(m['open'] ?? m['is_open'] ?? m['voting_open'] ?? m['window_open'] ?? m['allowed'] ?? m['status']);
+        final start = (m['start'] ?? m['window_start'] ?? m['opens_at'] ?? '').toString();
+        final end = (m['end'] ?? m['window_end'] ?? m['closes_at'] ?? '').toString();
+        final within = _isWithinWindow(start, end);
+        if (open && within) return true;
+      }
+      return false;
+    } catch (_) {
+      return false; // strict: block on network errors to prevent late voting
+    }
+  }
 
   static Widget? build({
     required BuildContext context,
@@ -103,7 +169,7 @@ class StudentBottomNavBar {
                       showUnselectedLabels: true,
                       elevation: 0,
                       currentIndex: ctrl.currentIndex.value,
-                      onTap: (i) {
+                      onTap: (i) async {
                         ctrl.currentIndex.value = i;
                         if (i == 0) {
                           // Notify observers to refresh; cheap and instant.
@@ -111,10 +177,74 @@ class StudentBottomNavBar {
                           return;
                         }
                         if (i == 1) {
-                          // Navigate to voting immediately without pre-checks to avoid any loading delay
-                          Navigator.of(context).push(
-                            MaterialPageRoute(builder: (_) => const VotingScreen()),
-                          );
+                          // If window not started yet (based on periodic poll), show prompt instantly
+                          if (_windowNotStarted.value) {
+                            await _showBlurDialog(
+                              context,
+                              AlertDialog(
+                                title: Row(
+                                  children: [
+                                    const Expanded(child: Text('Voting not started')),
+                                    IconButton(
+                                      icon: const Icon(Icons.close),
+                                      tooltip: 'Close',
+                                      onPressed: () => Navigator.of(context).pop(),
+                                    ),
+                                  ],
+                                ),
+                                content: const Text('The voting has not started yet. Please check back later.'),
+                              ),
+                              barrierDismissible: true,
+                            );
+                            ctrl.currentIndex.value = 0;
+                            homeRefreshTick.value = homeRefreshTick.value + 1;
+                            return;
+                          }
+                          // If window already ended (based on periodic poll), show prompt instantly without network delay
+                          if (_windowEnded.value) {
+                            await _showBlurDialog(
+                              context,
+                              AlertDialog(
+                                title: Row(
+                                  children: [
+                                    const Expanded(child: Text('Voting has ended')),
+                                    IconButton(
+                                      icon: const Icon(Icons.close),
+                                      tooltip: 'Close',
+                                      onPressed: () => Navigator.of(context).pop(),
+                                    ),
+                                  ],
+                                ),
+                                content: const Text('The voting window is closed. You can no longer submit a vote.'),
+                              ),
+                              barrierDismissible: true,
+                            );
+                            ctrl.currentIndex.value = 0;
+                            homeRefreshTick.value = homeRefreshTick.value + 1;
+                            return;
+                          }
+                          // Instant route decision using only local state
+                          final sid = UserSession.studentId ?? '';
+                          final hasCachedReceipt = _hasLocalReceipt(sid);
+                          if (hasCachedReceipt) {
+                            // Validate with backend to prevent false positives
+                            bool already = false;
+                            try { already = await ElecomVotingService.checkAlreadyVotedDirect(sid); } catch (_) {}
+                            if (already) {
+                              Navigator.of(context).push(
+                                MaterialPageRoute(builder: (_) => const ReceiptLandingScreen()),
+                              );
+                            } else {
+                              Navigator.of(context).push(
+                                MaterialPageRoute(builder: (_) => const VotingScreen()),
+                              );
+                            }
+                          } else {
+                            // Window is considered open from local flags; navigate instantly to voting
+                            Navigator.of(context).push(
+                              MaterialPageRoute(builder: (_) => const VotingScreen()),
+                            );
+                          }
                           return;
                         }
 
@@ -294,8 +424,11 @@ class StudentBottomNavBar {
       final res = await http.get(uri).timeout(const Duration(seconds: 8));
       final json = ElecomVotingService.decodeJson(res.body);
       bool visible = false;
+      bool ended = false;
+      bool notStarted = false;
       if (json is Map && json['success'] == true && json['window'] is Map) {
         final w = (json['window'] as Map).cast<String, dynamic>();
+        final startAt = w['start_at']?.toString();
         final endAt = w['end_at']?.toString();
         final resultsAt = w['results_at']?.toString();
         if (resultsAt != null && resultsAt.isNotEmpty) {
@@ -303,9 +436,21 @@ class StudentBottomNavBar {
         } else if (endAt != null && endAt.isNotEmpty) {
           visible = DateTime.now().isAfter(DateTime.parse(endAt));
         }
+        if (startAt != null && startAt.isNotEmpty) {
+          notStarted = DateTime.now().isBefore(DateTime.parse(startAt));
+        }
+        if (endAt != null && endAt.isNotEmpty) {
+          ended = DateTime.now().isAfter(DateTime.parse(endAt));
+        }
       }
       if (_resultsVisible.value != visible) {
         _resultsVisible.value = visible;
+      }
+      if (_windowEnded.value != ended) {
+        _windowEnded.value = ended;
+      }
+      if (_windowNotStarted.value != notStarted) {
+        _windowNotStarted.value = notStarted;
       }
     } catch (_) {}
   }

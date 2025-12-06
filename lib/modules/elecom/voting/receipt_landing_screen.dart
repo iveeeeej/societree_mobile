@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:centralized_societree/services/user_session.dart';
 import 'package:centralized_societree/modules/elecom/voting/voting_receipt_screen.dart';
+import 'package:centralized_societree/modules/elecom/services/elecom_voting_service.dart';
 import 'package:centralized_societree/modules/elecom/voting/voting_screen.dart';
 import 'package:centralized_societree/modules/elecom/widgets/voting_action_button.dart';
 
@@ -19,8 +20,12 @@ class _ReceiptLandingScreenState extends State<ReceiptLandingScreen> {
       final sid = UserSession.studentId ?? '';
       final id = (UserSession.lastReceiptStudentId == sid) ? UserSession.lastReceiptId : null;
       final selections = (UserSession.lastReceiptStudentId == sid) ? UserSession.lastReceiptSelections : null;
+      bool already = false;
+      if (sid.isNotEmpty) {
+        try { already = await ElecomVotingService.checkAlreadyVotedDirect(sid); } catch (_) {}
+      }
       if (!mounted) return;
-      if (sid.isNotEmpty && id != null && id.isNotEmpty && selections != null && selections.isNotEmpty) {
+      if (already && sid.isNotEmpty && id != null && id.isNotEmpty && selections != null && selections.isNotEmpty) {
         await Navigator.of(context).pushReplacement(
           MaterialPageRoute(
             builder: (_) => VotingReceiptScreen(
