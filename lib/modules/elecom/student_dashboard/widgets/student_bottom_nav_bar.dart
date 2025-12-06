@@ -7,6 +7,7 @@ import 'package:centralized_societree/services/user_session.dart';
 import '../services/student_dashboard_service.dart';
 import 'package:centralized_societree/modules/elecom/voting/voting_screen.dart';
 import 'package:centralized_societree/modules/elecom/voting/voting_receipt_screen.dart';
+import 'package:centralized_societree/modules/elecom/widgets/voting_action_button.dart';
 import 'dart:math' as math;
 import 'package:http/http.dart' as http;
 import 'package:intl/intl.dart';
@@ -2093,7 +2094,10 @@ class _PieChartPainter extends CustomPainter {
                                         ),
                                         title: Text(c['name'] ?? ''),
                                         subtitle: (c['party'] as String).isNotEmpty ? Text(c['party'] as String) : null,
-                                        trailing: isSel ? const Icon(Icons.radio_button_checked, color: Color(0xFF6E63F6)) : const Icon(Icons.radio_button_off),
+                                        trailing: Icon(
+                                          isSel ? Icons.radio_button_checked : Icons.radio_button_off,
+                                          color: isSel ? (isDark ? Colors.white : Colors.black) : null,
+                                        ),
                                         onTap: () => setStateSB(() { selections[p['id']!] = id; }),
                                       );
                                     }).toList(),
@@ -2105,13 +2109,14 @@ class _PieChartPainter extends CustomPainter {
                         ),
                         SizedBox(
                           width: double.infinity,
-                          child: FilledButton.icon(
+                          child: VotingActionButton(
                             onPressed: (selections.isEmpty || submitting) ? null : () async {
                               // Show confirm dialog directly without intermediate loading
                               final proceed = await showDialog<bool>(
                                 context: context,
                                 barrierDismissible: true,
                                 builder: (ctx) {
+                                  final isDarkLocal = Theme.of(ctx).brightness == Brightness.dark;
                                   return AlertDialog(
                                     title: const Text('Confirm your vote'),
                                     content: SizedBox(
@@ -2145,8 +2150,19 @@ class _PieChartPainter extends CustomPainter {
                                       ),
                                     ),
                                     actions: [
-                                      TextButton(onPressed: () => Navigator.of(ctx).pop(false), child: const Text('Cancel')),
-                                      FilledButton(onPressed: () => Navigator.of(ctx).pop(true), child: const Text('Submit')),
+                                      TextButton(
+                                        onPressed: () => Navigator.of(ctx).pop(false),
+                                        child: const Text('Cancel'),
+                                        style: TextButton.styleFrom(
+                                          foregroundColor: isDarkLocal ? Colors.white : Colors.black,
+                                        ),
+                                      ),
+                                      VotingActionButton(
+                                        onPressed: () => Navigator.of(ctx).pop(true),
+                                        label: 'Submit',
+                                        compact: true,
+                                        fullWidth: false,
+                                      ),
                                     ],
                                   );
                                 },
@@ -2208,7 +2224,7 @@ class _PieChartPainter extends CustomPainter {
                               }
                             },
                             icon: const Icon(Icons.fact_check_outlined),
-                            label: const Text('Review & Submit'),
+                            label: 'Review & Submit',
                           ),
                         )
                       ],

@@ -5,6 +5,7 @@ import 'package:centralized_societree/services/user_session.dart';
 import 'package:centralized_societree/modules/elecom/student_dashboard/services/student_dashboard_service.dart';
 import 'package:centralized_societree/modules/elecom/services/elecom_voting_service.dart';
 import 'package:centralized_societree/modules/elecom/voting/voting_receipt_screen.dart';
+import 'package:centralized_societree/modules/elecom/widgets/voting_action_button.dart';
 import 'package:http/http.dart' as http;
 import 'package:centralized_societree/config/api_config.dart';
 
@@ -281,8 +282,19 @@ class _VotingScreenState extends State<VotingScreen> {
                       ),
                     ),
                     actions: [
-                      TextButton(onPressed: () => Navigator.of(ctx).pop(false), child: const Text('Cancel')),
-                      FilledButton(onPressed: () => Navigator.of(ctx).pop(true), child: const Text('Submit')),
+                      TextButton(
+                        onPressed: () => Navigator.of(ctx).pop(false),
+                        child: const Text('Cancel'),
+                        style: TextButton.styleFrom(
+                          foregroundColor: (Theme.of(ctx).brightness == Brightness.dark) ? Colors.white : Colors.black,
+                        ),
+                      ),
+                      VotingActionButton(
+                        onPressed: () => Navigator.of(ctx).pop(true),
+                        label: 'Submit',
+                        compact: true,
+                        fullWidth: false,
+                      ),
                     ],
                   ),
                 ),
@@ -323,22 +335,72 @@ class _VotingScreenState extends State<VotingScreen> {
               ),
               Center(
                 child: Dialog(
-                  insetPadding: const EdgeInsets.symmetric(horizontal: 80),
-                  shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
-                  child: Padding(
-                    padding: const EdgeInsets.symmetric(horizontal: 18, vertical: 16),
-                    child: Row(
-                      mainAxisSize: MainAxisSize.min,
-                      children: [
-                        const SizedBox(width: 24, height: 24, child: CircularProgressIndicator(strokeWidth: 3)),
-                        const SizedBox(width: 12),
-                        Flexible(
-                          child: Text(
-                            'Submitting your vote...',
-                            style: theme.textTheme.bodyMedium?.copyWith(fontWeight: FontWeight.w600),
+                  insetPadding: const EdgeInsets.symmetric(horizontal: 60),
+                  shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(18)),
+                  child: Container(
+                    decoration: BoxDecoration(
+                      gradient: LinearGradient(
+                        begin: Alignment.topLeft,
+                        end: Alignment.bottomRight,
+                        colors: [
+                          theme.colorScheme.surface,
+                          theme.colorScheme.surface.withOpacity(0.95),
+                        ],
+                      ),
+                      borderRadius: BorderRadius.circular(18),
+                    ),
+                    padding: const EdgeInsets.fromLTRB(20, 18, 20, 18),
+                    child: ConstrainedBox(
+                      constraints: const BoxConstraints(minWidth: 280, maxWidth: 420),
+                      child: Column(
+                        mainAxisSize: MainAxisSize.min,
+                        children: [
+                          Container(
+                            width: 56,
+                            height: 56,
+                            decoration: BoxDecoration(
+                              color: theme.colorScheme.primary.withOpacity(0.12),
+                              shape: BoxShape.circle,
+                            ),
+                            child: Center(
+                              child: Icon(Icons.how_to_vote, color: theme.colorScheme.primary, size: 28),
+                            ),
                           ),
-                        ),
-                      ],
+                          const SizedBox(height: 14),
+                          Text(
+                            'Submitting your vote...',
+                            style: theme.textTheme.titleMedium?.copyWith(fontWeight: FontWeight.w700),
+                            textAlign: TextAlign.center,
+                          ),
+                          const SizedBox(height: 8),
+                          Text(
+                            'Please wait a moment while we securely record your choices.',
+                            textAlign: TextAlign.center,
+                            style: theme.textTheme.bodySmall?.copyWith(color: theme.textTheme.bodySmall?.color?.withOpacity(0.8)),
+                          ),
+                          const SizedBox(height: 16),
+                          SizedBox(
+                            width: 40,
+                            height: 40,
+                            child: CircularProgressIndicator(
+                              strokeWidth: 4,
+                              valueColor: AlwaysStoppedAnimation<Color>(theme.colorScheme.primary),
+                            ),
+                          ),
+                          const SizedBox(height: 12),
+                          SizedBox(
+                            width: double.infinity,
+                            child: ClipRRect(
+                              borderRadius: BorderRadius.circular(8),
+                              child: LinearProgressIndicator(
+                                minHeight: 6,
+                                color: theme.colorScheme.primary,
+                                backgroundColor: theme.colorScheme.primary.withOpacity(0.15),
+                              ),
+                            ),
+                          ),
+                        ],
+                      ),
                     ),
                   ),
                 ),
@@ -704,9 +766,10 @@ class _VotingScreenState extends State<VotingScreen> {
                                                                 ),
                                                               )
                                                             : null),
-                                                    trailing: isSel
-                                                        ? const Icon(Icons.radio_button_checked, color: Color(0xFF6E63F6))
-                                                        : const Icon(Icons.radio_button_off),
+                                                    trailing: Icon(
+                                                      isSel ? Icons.radio_button_checked : Icons.radio_button_off,
+                                                      color: isSel ? (isDark ? Colors.white : Colors.black) : null,
+                                                    ),
                                                     onTap: () => setState(() {
                                                       if (_selections[posKey] == id) {
                                                         _selections.remove(posKey); // unselect
@@ -732,13 +795,10 @@ class _VotingScreenState extends State<VotingScreen> {
                     ),
                     Padding(
                       padding: const EdgeInsets.fromLTRB(16, 0, 16, 16),
-                      child: SizedBox(
-                        width: double.infinity,
-                        child: FilledButton.icon(
-                          onPressed: _selections.isEmpty || _submitting ? null : _submit,
-                          icon: const Icon(Icons.fact_check_outlined),
-                          label: const Text('Review & Submit'),
-                        ),
+                      child: VotingActionButton(
+                        onPressed: _selections.isEmpty || _submitting ? null : _submit,
+                        icon: const Icon(Icons.fact_check_outlined),
+                        label: 'Review & Submit',
                       ),
                     ),
                   ],

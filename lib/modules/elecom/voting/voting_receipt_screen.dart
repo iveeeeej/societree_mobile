@@ -3,6 +3,7 @@ import 'dart:ui' show ImageFilter;
 import 'package:centralized_societree/main.dart';
 import 'package:centralized_societree/modules/elecom/dashboard.dart';
 import 'package:centralized_societree/modules/elecom/student_dashboard/services/student_dashboard_service.dart';
+import 'package:centralized_societree/modules/elecom/widgets/voting_action_button.dart';
 
 class VotingReceiptScreen extends StatelessWidget {
   final String receiptId;
@@ -174,7 +175,7 @@ class VotingReceiptScreen extends StatelessWidget {
                   ),
                   SizedBox(
                     width: double.infinity,
-                    child: FilledButton.icon(
+                    child: VotingActionButton(
                       onPressed: () async {
                         if (showThanksOnBack) {
                           await showGeneralDialog<void>(
@@ -235,7 +236,7 @@ class VotingReceiptScreen extends StatelessWidget {
                         );
                       },
                       icon: const Icon(Icons.home_outlined),
-                      label: const Text('Back to Home'),
+                      label: 'Back to Home',
                     ),
                   ),
                 ],
