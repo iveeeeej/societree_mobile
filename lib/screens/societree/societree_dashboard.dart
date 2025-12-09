@@ -3,6 +3,8 @@ import 'dart:ui';
 import 'package:centralized_societree/screens/student_dashboard.dart';
 import 'package:centralized_societree/modules/elecom/student_dashboard/student_dashboard.dart'
     as Elecom;
+import 'package:centralized_societree/modules/usg/screen/splash_screen.dart'
+    as USG;
 import 'package:flutter/material.dart';
 import 'package:centralized_societree/services/user_session.dart';
 import 'package:centralized_societree/config/api_config.dart';
@@ -416,6 +418,11 @@ class _SocieTreeDashboardState extends State<SocieTreeDashboard> {
                                 MaterialPageRoute(
                                   builder: (_) => isElecom
                                       ? Elecom.StudentDashboard(
+                                          orgName: it.name,
+                                          assetPath: it.assetPath,
+                                        )
+                                        : nameU == 'USG'
+                                          ? USG.SplashScreen(
                                           orgName: it.name,
                                           assetPath: it.assetPath,
                                         )
