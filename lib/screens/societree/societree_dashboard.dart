@@ -5,9 +5,10 @@ import 'package:centralized_societree/modules/elecom/student_dashboard/student_d
     as Elecom;
 import 'package:centralized_societree/modules/usg/screen/splash_screen.dart'
     as USG;
-
 import 'package:centralized_societree/modules/pafe/home_page.dart'
     as PAFE;
+import 'package:centralized_societree/modules/arcu/homepage.dart'
+    as ARCU;
 import 'package:flutter/material.dart';
 import 'package:centralized_societree/services/user_session.dart';
 import 'package:centralized_societree/config/api_config.dart';
@@ -432,6 +433,8 @@ class _SocieTreeDashboardState extends State<SocieTreeDashboard> {
                                         )
                                         : nameU == 'PAFE'
                                           ? PAFE.HomePage()
+                                        : nameU == 'ARCU'
+                                          ? ARCU.HomePage()
                                       : StudentDashboard(
                                           orgName: it.name,
                                           assetPath: it.assetPath,
