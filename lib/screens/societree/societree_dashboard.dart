@@ -13,6 +13,10 @@ import 'package:centralized_societree/modules/afprotechs/afprotech_dashboard.dar
     as AFPROTECHS;
 import 'package:centralized_societree/modules/site/controllers/site_dashboard.dart'
     as SITE;
+import 'package:centralized_societree/modules/access/screens/home_screen.dart'
+    as ACCESS;
+import 'package:centralized_societree/modules/redcross/screens/splash_screen.dart'
+    as RED;
 import 'package:flutter/material.dart';
 import 'package:centralized_societree/services/user_session.dart';
 import 'package:centralized_societree/config/api_config.dart';
@@ -218,7 +222,7 @@ class _SocieTreeDashboardState extends State<SocieTreeDashboard> {
       _OrgItem('PAFE', 'assets/images/PAFE.png'),
       _OrgItem('AFPROTECHS', 'assets/images/AFPROTECH.png'),
       _OrgItem('ACCESS', 'assets/images/ACCESS.png'),
-      _OrgItem('RED COSS', 'assets/images/REDCROSS.png'),
+      _OrgItem('RED CROSS', 'assets/images/REDCROSS.png'),
     ];
 
     return Scaffold(
@@ -448,6 +452,14 @@ class _SocieTreeDashboardState extends State<SocieTreeDashboard> {
                                           ? SITE.SiteDashboard(
                                             orgName: 'SITE', 
                                             assetPath: 'assets/images/SITE.png',
+                                          )
+                                        : nameU == 'ACCESS'
+                                          ? ACCESS.HomeScreen()
+                                        : nameU == 'RED CROSS'
+                                          ? RED.SplashScreen(
+                                            orgName: it.name, 
+                                            assetPath: it.assetPath, 
+                                            apiService: _api
                                           )
                                       : StudentDashboard(
                                           orgName: it.name,
