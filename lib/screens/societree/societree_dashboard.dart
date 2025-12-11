@@ -9,6 +9,8 @@ import 'package:centralized_societree/modules/pafe/home_page.dart'
     as PAFE;
 import 'package:centralized_societree/modules/arcu/homepage.dart'
     as ARCU;
+import 'package:centralized_societree/modules/afprotechs/afprotech_dashboard.dart'
+    as AFPROTECHS;
 import 'package:flutter/material.dart';
 import 'package:centralized_societree/services/user_session.dart';
 import 'package:centralized_societree/config/api_config.dart';
@@ -435,6 +437,10 @@ class _SocieTreeDashboardState extends State<SocieTreeDashboard> {
                                           ? PAFE.HomePage()
                                         : nameU == 'ARCU'
                                           ? ARCU.HomePage()
+                                        : nameU == 'AFPROTECHS'
+                                          ? AFPROTECHS.DashboardScreen(
+                                            orgName: 'AFPROTECHS',
+                                            assetPath: 'assets/images/AFPROTECH.png',)
                                       : StudentDashboard(
                                           orgName: it.name,
                                           assetPath: it.assetPath,
