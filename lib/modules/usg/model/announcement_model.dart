@@ -28,19 +28,19 @@ enum AnnouncementType {
       case AnnouncementType.event:
         return Icons.event;
       case AnnouncementType.cleaning:
-        return Icons.clean_hands;
+        return Icons.cleaning_services;
       case AnnouncementType.meeting:
         return Icons.meeting_room;
       case AnnouncementType.seminar:
-        return Icons.person_2;
+        return Icons.speaker_notes;
       case AnnouncementType.workshop:
-        return Icons.construction;
-      case AnnouncementType.maintenance:
         return Icons.build;
+      case AnnouncementType.maintenance:
+        return Icons.construction;
       case AnnouncementType.urgent:
-        return Icons.warning;
-      case AnnouncementType.important:
         return Icons.priority_high;
+      case AnnouncementType.important:
+        return Icons.lightbulb;
       case AnnouncementType.other:
         return Icons.announcement;
     }
@@ -49,17 +49,17 @@ enum AnnouncementType {
   Color get color {
     switch (this) {
       case AnnouncementType.event:
-        return Colors.green;
-      case AnnouncementType.cleaning:
-        return Colors.lightGreen;
-      case AnnouncementType.meeting:
-        return Colors.blue;
-      case AnnouncementType.seminar:
-        return Colors.deepPurple;
-      case AnnouncementType.workshop:
         return Colors.orange;
-      case AnnouncementType.maintenance:
+      case AnnouncementType.cleaning:
         return Colors.brown;
+      case AnnouncementType.meeting:
+        return Colors.lightBlue;
+      case AnnouncementType.seminar:
+        return Colors.cyan;
+      case AnnouncementType.workshop:
+        return Colors.purple;
+      case AnnouncementType.maintenance:
+        return Colors.grey;
       case AnnouncementType.urgent:
         return Colors.red;
       case AnnouncementType.important:

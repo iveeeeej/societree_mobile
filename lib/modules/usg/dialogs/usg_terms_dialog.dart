@@ -8,6 +8,7 @@ void showUSGTermsDialog(BuildContext context) {
       return BackdropFilter(
         filter: ImageFilter.blur(sigmaX: 6, sigmaY: 6),
         child: AlertDialog(
+          backgroundColor: Colors.white,
           title: const Text('USG Terms & Conditions'),
           content: SingleChildScrollView(
             child: Column(

@@ -215,6 +215,7 @@ class _AnnouncementPageState extends State<AnnouncementPage> {
     return Card(
       margin: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
       elevation: 2,
+      color: Colors.white,
       shape: RoundedRectangleBorder(
         borderRadius: BorderRadius.circular(12),
       ),
@@ -442,7 +443,7 @@ class _AnnouncementPageState extends State<AnnouncementPage> {
             ),
             const SizedBox(height: 10),
             Text(
-              'Be the first to make an announcement or check back later',
+              'Check back later',
               textAlign: TextAlign.center,
               style: TextStyle(
                 color: Colors.grey[600],
@@ -455,6 +456,7 @@ class _AnnouncementPageState extends State<AnnouncementPage> {
               label: const Text('Refresh'),
               style: ElevatedButton.styleFrom(
                 padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 12),
+                backgroundColor: Colors.white
               ),
             ),
           ],
@@ -465,22 +467,24 @@ class _AnnouncementPageState extends State<AnnouncementPage> {
 
   Widget _buildSearchBar() {
     return Padding(
-      padding: const EdgeInsets.all(16),
+      padding: const EdgeInsets.all(10),
       child: TextField(
         controller: _searchController,
         onChanged: _filterAnnouncements,
         decoration: InputDecoration(
-          hintText: 'Search announcements...',
-          prefixIcon: const Icon(Icons.search),
+          hintText: 'Search Announcements...',
+          hintStyle: TextStyle(color: Color(0xFF9D9D9D)),
+          prefixIcon: const Icon(Icons.search, color: Color(0xFF9D9D9D)),
           suffixIcon: IconButton(
-            icon: const Icon(Icons.close),
+            icon: const Icon(Icons.close, color: Color(0xFF9D9D9D)),
             onPressed: _toggleSearchBar,
           ),
           border: OutlineInputBorder(
-            borderRadius: BorderRadius.circular(12),
+            borderSide: BorderSide.none,
+            borderRadius: BorderRadius.circular(30),
           ),
           filled: true,
-          fillColor: Colors.grey[50],
+          fillColor: Color(0xFFEEEDF3),
         ),
       ),
     );
@@ -534,22 +538,7 @@ class _AnnouncementPageState extends State<AnnouncementPage> {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      appBar: AppBar(
-        title: const Text('Announcements'),
-        actions: [
-          if (!_isLoading && !_hasError && _announcements.isNotEmpty)
-            IconButton(
-              icon: Icon(_showSearchBar ? Icons.close : Icons.search),
-              onPressed: _toggleSearchBar,
-              tooltip: 'Search',
-            ),
-          IconButton(
-            icon: const Icon(Icons.refresh),
-            onPressed: _loadAnnouncements,
-            tooltip: 'Refresh',
-          ),
-        ],
-      ),
+      backgroundColor: Colors.white,
       body: _isLoading
           ? _buildLoadingState()
           : _hasError
@@ -564,11 +553,40 @@ class _AnnouncementPageState extends State<AnnouncementPage> {
                         ),
                       ],
                     ),
-      floatingActionButton: _announcements.isNotEmpty && !_showSearchBar
-          ? FloatingActionButton.small(
-              onPressed: _loadAnnouncements,
-              child: const Icon(Icons.refresh),
-              tooltip: 'Refresh',
+      floatingActionButton: _announcements.isNotEmpty
+          ? Row(
+              mainAxisAlignment: MainAxisAlignment.end,
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                // Search FAB (only show when search bar is not visible)
+                if (!_showSearchBar)
+                  SizedBox(
+                    height: 60,
+                    width: 60,
+                    child: FloatingActionButton.small(
+                      onPressed: _toggleSearchBar,
+                      heroTag: 'search_fab',
+                      foregroundColor: Color(0xFF1A1A34),
+                      backgroundColor: Color(0xFFDEE0FD),
+                      child: const Icon(Icons.search),
+                      tooltip: 'Search',
+                    ),
+                  ),
+                const SizedBox(width: 8),
+                // Refresh FAB (always show when there are announcements)
+                SizedBox(
+                  height: 60,
+                  width: 60,
+                  child: FloatingActionButton.small(
+                    onPressed: _loadAnnouncements,
+                    heroTag: 'refresh_fab',
+                    foregroundColor: Color(0xFF1A1A34),
+                    backgroundColor: Color(0xFFDEE0FD),
+                    child: const Icon(Icons.refresh),
+                    tooltip: 'Refresh',
+                  ),
+                ),
+              ],
             )
           : null,
     );

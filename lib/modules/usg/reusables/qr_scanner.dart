@@ -350,8 +350,8 @@ class _QRScannerScreenState extends State<QRScannerScreen>
         foregroundColor: Colors.white,
         title: Text(
           'Attendance Scanner',
-          style: TextStyle(
-            fontSize: 20,
+          style: GoogleFonts.oswald(
+            fontSize: 16,
             fontWeight: FontWeight.w600),
         ),
         actions: [

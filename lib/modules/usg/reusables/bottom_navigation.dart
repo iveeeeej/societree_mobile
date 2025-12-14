@@ -11,6 +11,7 @@ class BottomNavigation extends StatefulWidget {
   final VoidCallback? onHomeTap;
   final VoidCallback? onLogoutTap;
   final VoidCallback? onTermsTap;
+  final Color? backgroundColor;
 
   const BottomNavigation({
     super.key,
@@ -40,6 +41,7 @@ class BottomNavigation extends StatefulWidget {
     this.onHomeTap,
     this.onLogoutTap,
     this.onTermsTap,
+    this.backgroundColor,
   });
 
   @override
@@ -52,6 +54,7 @@ class _BottomNavigationState extends State<BottomNavigation> {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
+      backgroundColor: widget.backgroundColor,
       appBar: widget.showAppBar
           ? CustomAppBar(
               title: widget.orgName,
@@ -70,7 +73,8 @@ class _BottomNavigationState extends State<BottomNavigation> {
       bottomNavigationBar: BottomNavigationBar(
         currentIndex: _currentIndex,
         selectedItemColor: Colors.amber,
-        unselectedItemColor: Colors.grey,
+        unselectedItemColor: Color(0xFF1A1A34),
+        backgroundColor: Colors.white,
         type: BottomNavigationBarType.fixed,
         onTap: (index) => setState(() => _currentIndex = index),
         items: widget.navItems,

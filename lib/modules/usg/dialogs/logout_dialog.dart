@@ -9,6 +9,7 @@ Future<bool?> showLogoutDialog(BuildContext context) async {
       return BackdropFilter(
         filter: ImageFilter.blur(sigmaX: 6, sigmaY: 6),
         child: AlertDialog(
+          backgroundColor: Colors.white,
           title: const Text('Logout'),
           content: const Text('Are you sure you want to logout?'),
           actions: [

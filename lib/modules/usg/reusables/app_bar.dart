@@ -50,13 +50,12 @@ class CustomAppBar extends StatelessWidget implements PreferredSizeWidget {
       return Row(
         mainAxisSize: MainAxisSize.min,
         children: [
-          // Logo image with white circular background
           Container(
             width: 32,
             height: 32,
             decoration: BoxDecoration(
               shape: BoxShape.circle,
-              color: Colors.white, // White background for the logo
+              color: Colors.white,
               border: Border.all(
                 color: Colors.white.withOpacity(0.3),
                 width: 1,
@@ -72,9 +71,9 @@ class CustomAppBar extends StatelessWidget implements PreferredSizeWidget {
           const SizedBox(width: 12),
           // Organization name
           Text(
-            title,
-            style: const TextStyle(
-              fontSize: 18,
+            'University of Student Government',
+            style: GoogleFonts.oswald(
+              fontSize: 16,
               fontWeight: FontWeight.w600,
               color: Colors.white,
             ),
@@ -84,8 +83,8 @@ class CustomAppBar extends StatelessWidget implements PreferredSizeWidget {
     }
     
     return Text(
-      title,
-      style: const TextStyle(
+      'University of Student Government',
+      style: GoogleFonts.oswald(
         fontSize: 18,
         fontWeight: FontWeight.w600,
         color: Colors.white,
@@ -143,7 +142,7 @@ class CustomAppBar extends StatelessWidget implements PreferredSizeWidget {
           value: 'home',
           child: Row(
             children: [
-              const Icon(Icons.park, size: 20),
+              const Icon(Icons.park, size: 20, color: Color(0xFF000000)),
               const SizedBox(width: 10),
               const Text('Societree'),
             ],
@@ -153,7 +152,7 @@ class CustomAppBar extends StatelessWidget implements PreferredSizeWidget {
           value: 'logout',
           child: Row(
             children: [
-              const Icon(Icons.exit_to_app, size: 20),
+              const Icon(Icons.exit_to_app, size: 20, color: Color(0xFF000000)),
               const SizedBox(width: 10),
               const Text('Logout'),
             ],

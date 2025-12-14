@@ -361,8 +361,9 @@ class ApiService {
     }
   }
 
+  //Announcement - Retrieve
   Future<Map<String, dynamic>> getAnnouncements() async {
-  final uri = Uri.parse('$baseUrl/usg_announcement_retrieve.php'); // <-- FIXED
+  final uri = Uri.parse('$baseUrl/usg_announcement_retrieve.php');
   final res = await http
       .get(
         uri,
@@ -389,4 +390,20 @@ class ApiService {
       rethrow;
     }
   }
+
+  //Profile - Retrieve
+  Future<Map<String, dynamic>> getStudentProfile(String studentId) async {
+  try {
+    final response = await http.post(
+      Uri.parse('$baseUrl/get_profile.php'),
+      headers: _jsonHeaders,
+      body: jsonEncode({'student_id': studentId}),
+    ).timeout(_timeout);
+    
+    return _decode(response);
+  } catch (e) {
+    throw Exception('Failed to fetch student profile: $e');
+  }
+}
+
 }

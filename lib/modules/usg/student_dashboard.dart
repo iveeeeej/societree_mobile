@@ -6,8 +6,8 @@ import 'package:centralized_societree/modules/usg/dialogs/logout_dialog.dart';
 import 'package:centralized_societree/screens/societree/societree_dashboard.dart';
 import 'package:centralized_societree/screens/login_screen.dart';
 import 'pages/announcement_page.dart';
-import 'pages/services.dart';
-import 'pages/profile.dart';
+import 'pages/services_page.dart';
+import 'pages/profile_page.dart';
 import '../../services/api_service.dart';
 
 class StudentDashboard extends StatefulWidget { 
@@ -55,7 +55,6 @@ class _StudentDashboardState extends State<StudentDashboard> {
 
   @override
   Widget build(BuildContext context) {
-    // Create screens array with all pages
     final screens = [
       _buildHomeScreen(context),
       AnnouncementPage(apiService: widget.apiService),
@@ -67,6 +66,7 @@ class _StudentDashboardState extends State<StudentDashboard> {
       orgName: widget.orgName,
       assetPath: widget.assetPath,
       screens: screens,
+      backgroundColor: Colors.white,
       onMenuStateChanged: (isOpen) {
         setState(() {
           _isMenuOpen = isOpen;
@@ -79,20 +79,23 @@ class _StudentDashboardState extends State<StudentDashboard> {
   }
 
   Widget _buildHomeScreen(BuildContext context) {
-    return Center(
-      child: Column(
-        mainAxisAlignment: MainAxisAlignment.center,
-        children: [
-          Text(
-            'Welcome to ${widget.orgName}!',
-            style: GoogleFonts.oswald(fontSize: 24),
-          ),
-          const SizedBox(height: 16),
-          Text(
-            'Use the bottom navigation to explore',
-            style: TextStyle(color: Colors.grey[600]),
-          ),
-        ],
+    return Container(
+      color: Colors.white,
+      child: Center(
+        child: Column(
+          mainAxisAlignment: MainAxisAlignment.center,
+          children: [
+            Text(
+              'Welcome to ${widget.orgName}!',
+              style: GoogleFonts.oswald(fontSize: 24),
+            ),
+            const SizedBox(height: 16),
+            Text(
+              'Use the bottom navigation to explore',
+              style: TextStyle(color: Colors.grey[600]),
+            ),
+          ],
+        ),
       ),
     );
   }
