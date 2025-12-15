@@ -1,10 +1,13 @@
 import 'dart:async';
+import 'dart:convert';
 import 'dart:math';
 import 'package:flutter/material.dart';
 import 'package:google_fonts/google_fonts.dart';
 import 'package:mobile_scanner/mobile_scanner.dart';
 import 'package:vibration/vibration.dart';
 import 'package:permission_handler/permission_handler.dart';
+import 'package:http/http.dart' as http;
+import '../../../config/api_config.dart';
 
 class QRScannerScreen extends StatefulWidget {
   const QRScannerScreen({super.key});
@@ -14,18 +17,16 @@ class QRScannerScreen extends StatefulWidget {
 }
 
 class _QRScannerScreenState extends State<QRScannerScreen> 
-    with SingleTickerProviderStateMixin { // ADD THIS MIXIN
+    with SingleTickerProviderStateMixin {
   
   String? qrCode;
   bool _isScanning = true;
   bool _isProcessing = false;
   DateTime? _lastScannedTime;
   
-  // ADD: Animation controller for scanning line
   late AnimationController _scanAnimationController;
   late Animation<double> _scanAnimation;
   
-  // Constants for better maintainability
   static const double scannerBoxSize = 280.0;
   static const Duration scanCooldown = Duration(milliseconds: 500);
   static const Duration restartDelay = Duration(milliseconds: 300);
@@ -33,30 +34,27 @@ class _QRScannerScreenState extends State<QRScannerScreen>
   static const Color scannerColor = Color(0xFF2196F3);
   static const Color successColor = Color(0xFF4CAF50);
   static const Color accentColor = Color(0xFFf9a702);
+  static const Color errorColor = Color(0xFFF44336);
   
-  // ADD: Performance optimization variables
   final _scanningDebouncer = _Debouncer(milliseconds: 300);
   Timer? _cameraRestartTimer;
   
-  // Optimize controller with better settings
   final MobileScannerController _cameraController = MobileScannerController(
-    detectionSpeed: DetectionSpeed.normal,
-    detectionTimeoutMs: 100,
+    detectionSpeed: DetectionSpeed.noDuplicates,
+    detectionTimeoutMs: 250,
     facing: CameraFacing.back,
     formats: [BarcodeFormat.qrCode],
     returnImage: false,
   );
 
-  // ADD: Initialize camera with better settings
   @override
   void initState() {
     super.initState();
     
-    // Initialize animation controller
     _scanAnimationController = AnimationController(
       duration: const Duration(milliseconds: 2000),
       vsync: this,
-    )..repeat(reverse: true); // Continuous up-down motion
+    )..repeat(reverse: true);
     
     _scanAnimation = Tween<double>(begin: 0.0, end: 1.0).animate(
       CurvedAnimation(
@@ -65,16 +63,13 @@ class _QRScannerScreenState extends State<QRScannerScreen>
       ),
     );
     
-    // Start camera immediately with optimized settings
     WidgetsBinding.instance.addPostFrameCallback((_) {
       _startCamera();
     });
   }
 
-  // ADD: Method to start camera with error handling
   Future<void> _startCamera() async {
     try {
-      // Check camera permission
       final status = await Permission.camera.status;
       if (!status.isGranted) {
         final result = await Permission.camera.request();
@@ -91,7 +86,6 @@ class _QRScannerScreenState extends State<QRScannerScreen>
         _isScanning = true;
       });
       
-      // Start scanning animation
       _scanAnimationController.repeat(reverse: true);
       
     } catch (e) {
@@ -102,7 +96,6 @@ class _QRScannerScreenState extends State<QRScannerScreen>
     }
   }
 
-  // ADD: Show permission error
   void _showPermissionError() {
     ScaffoldMessenger.of(context).showSnackBar(
       SnackBar(
@@ -118,39 +111,55 @@ class _QRScannerScreenState extends State<QRScannerScreen>
     );
   }
 
-  // ADD: Show camera error
   void _showCameraError() {
     ScaffoldMessenger.of(context).showSnackBar(
       const SnackBar(
         content: Text('Failed to start camera. Please try again.'),
         backgroundColor: Colors.red,
-        duration: Duration(seconds: 3),
+        duration: const Duration(seconds: 3),
       ),
     );
   }
 
   void _onDetect(BarcodeCapture capture) async {
-    // Use debouncer to prevent rapid successive calls
     _scanningDebouncer.run(() async {
-      // Prevent multiple simultaneous processing
-      if (_isProcessing || !_isScanning) return;
+      print("=== DEBUG: QR SCAN START ===");
+      print("DEBUG: _onDetect called. isProcessing: $_isProcessing, isScanning: $_isScanning");
       
-      // Anti-shake/throttling: prevent scanning same code too frequently
-      final now = DateTime.now();
-      if (_lastScannedTime != null && 
-          now.difference(_lastScannedTime!) < scanCooldown) {
+      if (_isProcessing || !_isScanning) {
+        print("DEBUG: Skipping - processing: $_isProcessing, scanning: $_isScanning");
         return;
       }
       
-      if (capture.barcodes.isEmpty) return;
+      final now = DateTime.now();
+      if (_lastScannedTime != null && 
+          now.difference(_lastScannedTime!) < scanCooldown) {
+        print("DEBUG: Skipping - in cooldown period");
+        return;
+      }
+      
+      print("DEBUG: Number of barcodes detected: ${capture.barcodes.length}");
+      
+      if (capture.barcodes.isEmpty) {
+        print("DEBUG: No barcodes found");
+        return;
+      }
       
       final Barcode barcode = capture.barcodes.first;
       final String? rawValue = barcode.rawValue;
       
-      if (rawValue == null || rawValue.isEmpty) return;
+      print("DEBUG: Raw QR value: '$rawValue'");
+      print("DEBUG: QR length: ${rawValue?.length}");
+      print("DEBUG: QR value is null: ${rawValue == null}");
+      print("DEBUG: QR value isEmpty: ${rawValue?.isEmpty}");
       
-      // Validate QR code format
+      if (rawValue == null || rawValue.isEmpty) {
+        print("DEBUG: Skipping - null or empty value");
+        return;
+      }
+      
       if (!_isValidQR(rawValue)) {
+        print("DEBUG: QR validation failed");
         if (mounted) {
           ScaffoldMessenger.of(context).showSnackBar(
             SnackBar(
@@ -164,13 +173,14 @@ class _QRScannerScreenState extends State<QRScannerScreen>
         return;
       }
       
-      // Prevent duplicate scanning of same code
-      if (qrCode == rawValue) return;
+      print("DEBUG: QR validation passed!");
       
-      // ADD: Temporarily pause scanning for better UX
+      if (qrCode == rawValue) {
+        print("DEBUG: Same QR code as before, ignoring");
+        return;
+      }
+      
       _cameraController.stop();
-      
-      // Stop scanning animation
       _scanAnimationController.stop();
       
       setState(() {
@@ -180,33 +190,252 @@ class _QRScannerScreenState extends State<QRScannerScreen>
         _isScanning = false;
       });
       
-      // ADD: Log the scan
       _logScan(rawValue);
-      
-      // ADD: Show immediate visual and haptic feedback
       await _showQuickFeedback();
-      
-      // ADD: Short delay for better user experience
       await Future.delayed(const Duration(milliseconds: 100));
       
-      // Show result dialog
-      if (mounted) {
-        await _showResultDialog(rawValue);
-        
-        // ADD: Restart camera after dialog is closed
-        _restartCamera();
-      }
+      // Process the QR code and save to attendance
+      await _processAndSaveQRData(rawValue);
+      print("=== DEBUG: QR SCAN END ===");
     });
   }
 
-  // ADD: Validate QR code
-  bool _isValidQR(String code) {
-    // Add your specific validation logic here
-    // Example: Check if it's a valid URL, JSON, or specific format
-    return code.isNotEmpty && code.length > 3;
+  // Process QR data and save to attendance
+  Future<void> _processAndSaveQRData(String qrData) async {
+    try {
+      print("DEBUG: Processing QR data: '$qrData'");
+      
+      final parsedData = _parseQRData(qrData);
+      
+      if (parsedData == null) {
+        print("DEBUG: Failed to parse QR data");
+        if (mounted) {
+          await _showResultDialog(
+            isSuccess: false,
+            message: 'Invalid QR format',
+            details: 'Could not parse QR data.\n\nReceived: $qrData',
+          );
+        }
+        _restartCamera();
+        return;
+      }
+      
+      print("DEBUG: Successfully parsed data: $parsedData");
+      final studentId = parsedData['id_number'];
+      
+      // Check if student exists in the database
+      final studentInfo = await _checkStudentExists(studentId!);
+      
+      if (studentInfo == null) {
+        if (mounted) {
+          await _showResultDialog(
+            isSuccess: false,
+            message: 'Student not found in records',
+            details: 'ID: $studentId\nMake sure the student is registered.',
+          );
+        }
+        _restartCamera();
+        return;
+      }
+      
+      print("DEBUG: Student found: $studentInfo");
+      
+      // Save to attendance table
+      final saveResult = await _saveToAttendance(studentInfo);
+      
+      if (mounted) {
+        await _showResultDialog(
+          isSuccess: saveResult,
+          message: saveResult 
+              ? 'Attendance Recorded Successfully!' 
+              : 'Failed to record attendance',
+          details: saveResult 
+              ? '${parsedData['name']}\nID: $studentId\nCourse: ${parsedData['course']}'
+              : 'Please try again',
+        );
+      }
+      
+    } catch (e) {
+      print("Error processing QR: $e");
+      if (mounted) {
+        await _showResultDialog(
+          isSuccess: false,
+          message: 'Error processing QR code',
+          details: e.toString(),
+        );
+      }
+      _restartCamera();
+    }
   }
 
-  // ADD: Log scan event
+  Map<String, String>? _parseQRData(String qrData) {
+    try {
+      print("DEBUG: Parsing QR data: '$qrData'");
+      
+      // Replace any line breaks, tabs, or multiple spaces with single spaces
+      String cleanedData = qrData.replaceAll('\n', ' ')
+                                 .replaceAll('\r', ' ')
+                                 .replaceAll('\t', ' ')
+                                 .replaceAll(RegExp(r'\s+'), ' ')
+                                 .trim();
+      
+      print("DEBUG: Cleaned QR data: '$cleanedData'");
+      
+      // Split by space and filter out empty strings
+      final parts = cleanedData.split(' ').where((part) => part.isNotEmpty).toList();
+      
+      print("DEBUG: Parts after split: $parts");
+      print("DEBUG: Number of parts: ${parts.length}");
+      
+      if (parts.length < 4) {
+        print("DEBUG: Not enough parts");
+        return null;
+      }
+      
+      // Find the ID (it's the part with all digits)
+      String? idNumber;
+      int idIndex = -1;
+      
+      for (int i = 0; i < parts.length; i++) {
+        if (RegExp(r'^\d+$').hasMatch(parts[i])) {
+          idNumber = parts[i];
+          idIndex = i;
+          break;
+        }
+      }
+      
+      if (idNumber == null || idIndex < 2) {
+        print("DEBUG: ID not found or in wrong position");
+        return null;
+      }
+      
+      // First name is always first
+      final firstName = parts[0];
+      
+      // Last name is the word just before the ID
+      String lastName = parts[idIndex - 1];
+      
+      // Clean up last name if it has middle initial (D.BANTIAD -> BANTIAD)
+      if (lastName.contains('.')) {
+        final dotIndex = lastName.indexOf('.');
+        lastName = lastName.substring(dotIndex + 1);
+      }
+      
+      // Course is everything after the ID
+      final course = parts.sublist(idIndex + 1).join(' ');
+      final fullName = "$firstName $lastName";
+      
+      final result = {
+        'first_name': firstName,
+        'last_name': lastName,
+        'id_number': idNumber,
+        'course': course,
+        'name': fullName,
+      };
+      
+      print("DEBUG: Parsed result: $result");
+      return result;
+      
+    } catch (e) {
+      print("Error parsing QR data: $e");
+      return null;
+    }
+  }
+
+  // Check if student exists in the database
+  Future<Map<String, dynamic>?> _checkStudentExists(String idNumber) async {
+    try {
+      final apiUrl = apiBaseUrl;
+      
+      print("DEBUG: Checking student with ID: $idNumber");
+      print("DEBUG: API URL: $apiUrl/usg_check_student.php");
+      
+      final response = await http.post(
+        Uri.parse('$apiUrl/usg_check_student.php'),
+        headers: {'Content-Type': 'application/json'},
+        body: jsonEncode({'id_number': idNumber}),
+      ).timeout(Duration(seconds: 10));
+      
+      print("DEBUG: Check student response status: ${response.statusCode}");
+      print("DEBUG: Check student response body: ${response.body}");
+      
+      if (response.statusCode == 200) {
+        final data = jsonDecode(response.body);
+        if (data['success'] == true) {
+          print("DEBUG: Student found in database");
+          return data['student'];
+        } else {
+          print("DEBUG: Student not found in database");
+        }
+      } else {
+        print("DEBUG: HTTP error: ${response.statusCode}");
+      }
+      return null;
+    } catch (e) {
+      print("Error checking student: $e");
+      return null;
+    }
+  }
+
+  // Save attendance record to database
+  Future<bool> _saveToAttendance(Map<String, dynamic> studentInfo) async {
+    try {
+      final apiUrl = apiBaseUrl;
+      
+      print("DEBUG: Saving attendance for: ${studentInfo['id_number']}");
+      print("DEBUG: Student info: $studentInfo");
+      print("DEBUG: Using API: $apiUrl/usg_save_attendance.php");
+      
+      final response = await http.post(
+        Uri.parse('$apiUrl/usg_save_attendance.php'),
+        headers: {'Content-Type': 'application/json'},
+        body: jsonEncode({
+          'id_number': studentInfo['id_number'],
+          'first_name': studentInfo['first_name'] ?? '',
+          'last_name': studentInfo['last_name'] ?? '',
+          'course': studentInfo['course'] ?? '',
+          'year': studentInfo['year'] ?? '',
+          'section': studentInfo['section'] ?? '',
+          'role': studentInfo['role'] ?? 'student',
+        }),
+      ).timeout(Duration(seconds: 10));
+      
+      print("DEBUG: Save attendance response: ${response.statusCode}");
+      print("DEBUG: Save attendance body: ${response.body}");
+      
+      if (response.statusCode == 200) {
+        final data = jsonDecode(response.body);
+        return data['success'] == true;
+      }
+      return false;
+    } catch (e) {
+      print("Error saving attendance: $e");
+      return false;
+    }
+  }
+
+  bool _isValidQR(String code) {
+    if (code.isEmpty) return false;
+    
+    // Clean the code first (remove line breaks, extra spaces)
+    final cleanedCode = code.replaceAll('\n', ' ')
+                            .replaceAll('\r', ' ')
+                            .replaceAll('\t', ' ')
+                            .replaceAll(RegExp(r'\s+'), ' ')
+                            .trim();
+    
+    print("DEBUG: Validating QR (cleaned): '$cleanedCode'");
+    
+    // Check if it has multiple parts (at least 4 for name + ID + course)
+    final parts = cleanedCode.split(' ').where((p) => p.isNotEmpty).toList();
+    
+    // Should have at least 4 parts: FirstName MiddleInitial LastName ID Course
+    final isValid = parts.length >= 4;
+    print("DEBUG: Validation result: $isValid (${parts.length} parts)");
+    
+    return isValid;
+  }
+
   void _logScan(String qrCode) {
     final timestamp = DateTime.now().toIso8601String();
     final truncatedCode = qrCode.length > 20 
@@ -214,24 +443,25 @@ class _QRScannerScreenState extends State<QRScannerScreen>
       : qrCode;
     
     print('QR Scan Event - Time: $timestamp, Code: $truncatedCode');
-    
-    // You could also send to analytics service here
-    // Analytics.logEvent('qr_scan', {'code_length': qrCode.length});
   }
 
-  // ADD: Show result dialog
-  Future<void> _showResultDialog(String rawValue) async {
+  // Show result dialog with success/failure
+  Future<void> _showResultDialog({
+    required bool isSuccess,
+    required String message,
+    required String details,
+  }) async {
     return showDialog(
       context: context,
       barrierDismissible: false,
       barrierColor: Colors.black54,
       builder: (dialogContext) {
         return AlertDialog(
-          title: const Column(
+          title: Column(
             children: [
               Icon(
-                Icons.check_circle,
-                color: Colors.green,
+                isSuccess ? Icons.check_circle : Icons.error,
+                color: isSuccess ? Colors.green : Colors.red,
                 size: 60,
               ),
             ],
@@ -240,10 +470,10 @@ class _QRScannerScreenState extends State<QRScannerScreen>
             child: Column(
               mainAxisSize: MainAxisSize.min,
               children: [
-                const Text(
-                  'Successfully Signed In',
+                Text(
+                  message,
                   style: TextStyle(
-                    color: Colors.green,
+                    color: isSuccess ? Colors.green : Colors.red,
                     fontWeight: FontWeight.bold,
                     fontSize: 20,
                   ),
@@ -251,7 +481,7 @@ class _QRScannerScreenState extends State<QRScannerScreen>
                 ),
                 const SizedBox(height: 12),
                 const Text(
-                  'QR Code Data:',
+                  'Details:',
                   style: TextStyle(fontWeight: FontWeight.bold),
                 ),
                 const SizedBox(height: 10),
@@ -262,7 +492,7 @@ class _QRScannerScreenState extends State<QRScannerScreen>
                     borderRadius: BorderRadius.circular(8),
                   ),
                   child: SelectableText(
-                    rawValue,
+                    details,
                     style: const TextStyle(fontSize: 14),
                   ),
                 ),
@@ -273,14 +503,16 @@ class _QRScannerScreenState extends State<QRScannerScreen>
             TextButton(
               onPressed: () {
                 Navigator.pop(dialogContext);
-                Navigator.of(context).pop();
+                if (isSuccess) {
+                  Navigator.of(context).pop();
+                }
               },
               style: TextButton.styleFrom(
-                backgroundColor: Colors.red,
+                backgroundColor: isSuccess ? Colors.green : Colors.red,
                 foregroundColor: Colors.white,
                 minimumSize: const Size(100, 40),
               ),
-              child: const Text('Close'),
+              child: Text(isSuccess ? 'Done' : 'Try Again'),
             ),
           ],
         );
@@ -288,7 +520,6 @@ class _QRScannerScreenState extends State<QRScannerScreen>
     );
   }
 
-  // ADD: Method to restart camera after processing
   void _restartCamera() {
     _cameraRestartTimer?.cancel();
     _cameraRestartTimer = Timer(restartDelay, () {
@@ -299,36 +530,22 @@ class _QRScannerScreenState extends State<QRScannerScreen>
           _isScanning = true;
         });
         
-        // Restart scanning animation
         _scanAnimationController.repeat(reverse: true);
       }
     });
   }
 
-  // ADD: Quick visual feedback method with vibration
   Future<void> _showQuickFeedback() async {
-    // Haptic feedback
     if (await Vibration.hasVibrator() ?? false) {
       await Vibration.vibrate(duration: 100);
     }
     
-    // Quick visual indicator
     ScaffoldMessenger.of(context).removeCurrentSnackBar();
-    ScaffoldMessenger.of(context).showSnackBar(
-      SnackBar(
-        content: const Text('QR Code Detected!'),
-        duration: feedbackDuration,
-        backgroundColor: successColor,
-      ),
-    );
   }
 
   @override
   void dispose() {
-    // ADD: Clean up animation controller
     _scanAnimationController.dispose();
-    
-    // Clean up timers
     _scanningDebouncer.dispose();
     _cameraRestartTimer?.cancel();
     _cameraController.dispose();
@@ -337,7 +554,6 @@ class _QRScannerScreenState extends State<QRScannerScreen>
 
   @override
   Widget build(BuildContext context) {
-    // Control animation based on scanning state
     if (_isScanning && !_isProcessing && !_scanAnimationController.isAnimating) {
       _scanAnimationController.repeat(reverse: true);
     } else if ((!_isScanning || _isProcessing) && _scanAnimationController.isAnimating) {
@@ -355,6 +571,16 @@ class _QRScannerScreenState extends State<QRScannerScreen>
             fontWeight: FontWeight.w600),
         ),
         actions: [
+          // Debug button
+          IconButton(
+            icon: const Icon(Icons.bug_report),
+            onPressed: () {
+              print("DEBUG: Current state - isScanning: $_isScanning, isProcessing: $_isProcessing");
+              print("DEBUG: Last QR: $qrCode");
+              print("DEBUG: Camera torch: ${_cameraController.torchState.value}");
+            },
+            tooltip: 'Debug Info',
+          ),
           IconButton(
             icon: const Icon(Icons.flip_camera_ios),
             onPressed: () => _cameraController.switchCamera(),
@@ -379,14 +605,12 @@ class _QRScannerScreenState extends State<QRScannerScreen>
       ),
       body: Stack(
         children: [
-          // Camera Scanner with optimized settings
           MobileScanner(
             controller: _cameraController,
             onDetect: _onDetect,
             fit: BoxFit.cover,
           ),
           
-          // Semi-transparent overlay with gradient for better visibility
           Container(
             decoration: BoxDecoration(
               gradient: RadialGradient(
@@ -401,7 +625,6 @@ class _QRScannerScreenState extends State<QRScannerScreen>
             ),
           ),
           
-          // Scanner Box with optimized frame
           Center(
             child: Container(
               width: scannerBoxSize,
@@ -425,7 +648,6 @@ class _QRScannerScreenState extends State<QRScannerScreen>
             ),
           ),
           
-          // Instructions text
           Positioned(
             top: MediaQuery.of(context).padding.top + 100,
             left: 0,
@@ -442,7 +664,7 @@ class _QRScannerScreenState extends State<QRScannerScreen>
                 const SizedBox(height: 20),
                 Text(
                   _isScanning 
-                    ? (_isProcessing ? 'Processing QR Code...' : 'Position QR Code Inside Frame')
+                    ? (_isProcessing ? 'Processing QR Code...' : 'Scan Student QR Code')
                     : 'Processing...',
                   style: const TextStyle(
                     color: Colors.white,
@@ -454,8 +676,8 @@ class _QRScannerScreenState extends State<QRScannerScreen>
                 const SizedBox(height: 10),
                 Text(
                   _isScanning
-                    ? (_isProcessing ? 'Please wait...' : 'Hold steady for automatic scanning')
-                    : 'Scanning completed',
+                    ? (_isProcessing ? 'Checking student records...' : 'Hold QR code inside frame')
+                    : 'Attendance recording',
                   style: TextStyle(
                     color: _isScanning 
                       ? (_isProcessing ? Colors.amber : Colors.white70) 
@@ -468,7 +690,6 @@ class _QRScannerScreenState extends State<QRScannerScreen>
             ),
           ),
           
-          // Bottom status bar
           Positioned(
             bottom: 0,
             left: 0,
@@ -487,25 +708,30 @@ class _QRScannerScreenState extends State<QRScannerScreen>
                 children: [
                   Text(
                     qrCode == null
-                        ? 'Ready to scan'
-                        : 'Scanned: ${qrCode!.length > 30 ? '${qrCode!.substring(0, 30)}...' : qrCode!}',
+                        ? 'Ready to scan student QR'
+                        : 'Last scanned: ${_truncateText(qrCode!)}',
                     style: TextStyle(
                       color: _isProcessing ? Colors.white : successColor,
-                      fontWeight: _isProcessing ? FontWeight.bold : FontWeight.bold,
+                      fontWeight: FontWeight.bold,
                     ),
                     maxLines: 2,
                     overflow: TextOverflow.ellipsis,
                   ),
-                  SizedBox(height: 10)
+                  const SizedBox(height: 10),
+                  Text(
+                    'Format: FirstName M.LastName ID Course',
+                    style: TextStyle(
+                      color: Colors.white70,
+                      fontSize: 12,
+                    ),
+                  ),
                 ],
               ),
             ),
           ),
           
-          // Optimized scanning line
           if (_isScanning && !_isProcessing) _buildScanningLine(),
           
-          // ADD: Processing overlay when scanning
           if (_isProcessing)
             Container(
               color: Colors.black.withOpacity(0.5),
@@ -516,15 +742,15 @@ class _QRScannerScreenState extends State<QRScannerScreen>
                     color: Colors.black.withOpacity(0.8),
                     borderRadius: BorderRadius.circular(15),
                   ),
-                  child: const Column(
+                  child: Column(
                     mainAxisSize: MainAxisSize.min,
                     children: [
                       CircularProgressIndicator(
                         valueColor: AlwaysStoppedAnimation<Color>(Colors.green),
                       ),
-                      SizedBox(height: 15),
-                      Text(
-                        'Processing QR Code...',
+                      const SizedBox(height: 15),
+                      const Text(
+                        'Recording Attendance...',
                         style: TextStyle(
                           color: Colors.white,
                           fontSize: 16,
@@ -541,7 +767,6 @@ class _QRScannerScreenState extends State<QRScannerScreen>
     );
   }
 
-  // Simplified corner widget for better performance
   Widget _buildCorner(Alignment alignment) {
     return Align(
       alignment: alignment,
@@ -580,7 +805,6 @@ class _QRScannerScreenState extends State<QRScannerScreen>
     );
   }
 
-  // Optimized scanning line with AnimationController
   Widget _buildScanningLine() {
     return Align(
       alignment: Alignment.center,
@@ -598,9 +822,15 @@ class _QRScannerScreenState extends State<QRScannerScreen>
       ),
     );
   }
+
+  String _truncateText(String text) {
+    if (text.length > 30) {
+      return '${text.substring(0, 30)}...';
+    }
+    return text;
+  }
 }
 
-// Custom painter for scanning line
 class _ScanLinePainter extends CustomPainter {
   final double animationValue;
 
@@ -610,7 +840,6 @@ class _ScanLinePainter extends CustomPainter {
   void paint(Canvas canvas, Size size) {
     final lineY = size.height * animationValue;
     
-    // Create a gradient effect for the scanning line
     final gradient = LinearGradient(
       colors: [
         Colors.blue.withOpacity(0.7),
@@ -625,13 +854,11 @@ class _ScanLinePainter extends CustomPainter {
       ..shader = gradient.createShader(Rect.fromLTWH(0, lineY, size.width, 4))
       ..style = PaintingStyle.fill;
     
-    // Draw the main scanning line
     canvas.drawRect(
       Rect.fromLTWH(0, lineY, size.width, 2),
       paint,
     );
     
-    // Draw a glow effect
     final glowPaint = Paint()
       ..color = Colors.blue.withOpacity(0.3)
       ..maskFilter = const MaskFilter.blur(BlurStyle.normal, 4.0)
@@ -649,7 +876,6 @@ class _ScanLinePainter extends CustomPainter {
   }
 }
 
-// ADD: Debouncer class for performance optimization
 class _Debouncer {
   final int milliseconds;
   Timer? _timer;
