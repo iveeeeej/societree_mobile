@@ -225,22 +225,6 @@ class _ProfilePageState extends State<ProfilePage> {
               {'label': 'Contact Number', 'value': _userData!['contact']},
             ],
           ),
-          
-          const SizedBox(height: 24),
-          
-          // Refresh Button
-          Padding(
-            padding: const EdgeInsets.symmetric(horizontal: 16.0),
-            child: ElevatedButton.icon(
-              onPressed: _loadStudentProfile,
-              icon: const Icon(Icons.refresh),
-              label: const Text('Refresh Profile'),
-              style: ElevatedButton.styleFrom(
-                minimumSize: const Size(double.infinity, 48),
-                backgroundColor: Colors.white
-              ),
-            ),
-          ),
         ],
       ),
     );
