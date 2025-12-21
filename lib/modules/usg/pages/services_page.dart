@@ -18,20 +18,20 @@ class ServicesPage extends StatelessWidget {
       {
         'title': 'Violations',
         'description': 'Coming soon!',
-        'icon': Icons.warning_rounded,
+        'icon': Icons.gavel,
         'color': Colors.red,
+      },
+      {
+        'title': 'Events',
+        'description': 'Coming soon!',
+        'icon': Icons.event,
+        'color': Colors.orange,
       },
       {
         'title': 'Lost and Found',
         'description': 'Coming soon!',
         'icon': Icons.question_mark_rounded,
-        'color': Colors.purple,
-      },
-      {
-        'title': 'Borrow',
-        'description': 'Coming soon!',
-        'icon': Icons.repeat,
-        'color': Colors.grey,
+        'color': Colors.deepPurple,
       },
     ];
 

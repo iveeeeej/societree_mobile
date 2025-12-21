@@ -1,4 +1,5 @@
 import 'package:centralized_societree/modules/usg/controllers/student_dashboard_controller.dart';
+import 'package:centralized_societree/modules/usg/controllers/announcement_controller.dart';
 import 'package:centralized_societree/modules/usg/model/announcement_model.dart';
 import 'package:flutter/material.dart';
 import 'package:google_fonts/google_fonts.dart';
@@ -29,65 +30,65 @@ class StudentDashboard extends StatefulWidget {
   State<StudentDashboard> createState() => _StudentDashboardState();
 }
 
-class _StudentDashboardState extends State<StudentDashboard> {
-  final StudentDashboardController _controller = Get.put(StudentDashboardController());
+class _StudentDashboardState extends State<StudentDashboard> with RouteAware {
+  // Initialize both controllers
+  final StudentDashboardController _dashboardController = Get.put(StudentDashboardController());
+  late final AnnouncementController _announcementController;
   
-  // Announcement data state
-  int _announcementCount = 0;
-  bool _isLoadingAnnouncements = true;
-  List<Announcement> _recentAnnouncements = [];
+  // Create a route observer
+  final RouteObserver<PageRoute> routeObserver = RouteObserver<PageRoute>();
 
   @override
   void initState() {
     super.initState();
-    // Fetch announcements data when dashboard loads
-    _fetchAnnouncementsData();
+    // Initialize announcement controller with dependency injection
+    _announcementController = Get.put(AnnouncementController(widget.apiService));
+    // Fetch announcements when dashboard loads
+    _announcementController.fetchAnnouncements();
   }
 
-  Future<void> _fetchAnnouncementsData() async {
-    try {
-      setState(() {
-        _isLoadingAnnouncements = true;
-      });
-      
-      // Use your existing ApiService method to get announcements
-      final response = await widget.apiService.getAnnouncements();
-      
-      if (response['success'] == true) {
-        // Get the count from the response (from usg_announcement_retrieve.php)
-        final count = response['count'] ?? 0;
-        
-        // Also get the list of announcements for the recent section
-        final List<dynamic> data = response['announcements'] ?? [];
-        final announcements = data.map((item) {
-          return Announcement.fromJson(Map<String, dynamic>.from(item));
-        }).toList();
-        
-        // Take only the most recent 3 for the dashboard preview
-        final recentAnnouncements = announcements.take(3).toList();
-        
-        setState(() {
-          _announcementCount = count;
-          _recentAnnouncements = recentAnnouncements;
-          _isLoadingAnnouncements = false;
-        });
-      } else {
-        // If API call fails, fall back to 0
-        setState(() {
-          _announcementCount = 0;
-          _recentAnnouncements = [];
-          _isLoadingAnnouncements = false;
-        });
-      }
-      
-    } catch (e) {
-      print('Error fetching announcements: $e');
-      setState(() {
-        _announcementCount = 0;
-        _recentAnnouncements = [];
-        _isLoadingAnnouncements = false;
-      });
+  @override
+  void didChangeDependencies() {
+    super.didChangeDependencies();
+    // Subscribe to route changes when dependencies change
+    final route = ModalRoute.of(context);
+    if (route is PageRoute) {
+      routeObserver.subscribe(this, route);
     }
+  }
+
+  @override
+  void dispose() {
+    // Unsubscribe from route observer
+    routeObserver.unsubscribe(this);
+    super.dispose();
+  }
+
+  // Called when a new route has been popped and this route shows (user returns to this screen)
+  @override
+  void didPopNext() {
+    // Refresh announcements when returning to dashboard
+    _announcementController.fetchAnnouncements();
+    super.didPopNext();
+  }
+
+  // Optional: Also refresh when the route is pushed (for completeness)
+  @override
+  void didPush() {
+    // This is called when this route is pushed onto the navigator
+    super.didPush();
+  }
+
+  @override
+  void didPushNext() {
+    // Called when a new route is pushed and this route is no longer visible
+    super.didPushNext();
+  }
+
+  @override
+  void didPop() {
+    // Called when this route is popped off the navigator
+    super.didPop();
   }
 
   void _handleHomeTap() {
@@ -176,21 +177,17 @@ class _StudentDashboardState extends State<StudentDashboard> {
             
             const SizedBox(height: 24),
 
-            // Quick Stats Cards
+            // Quick Stats Cards using GetX
             Row(
               children: [
-                Expanded(
-                  child: _buildAnnouncementsCard(),
-                ),
+                Expanded(child: _buildAnnouncementsCard()),
                 const SizedBox(width: 12),
-                Expanded(
-                  child: _buildStatCard(
-                    icon: Icons.event,
-                    value: '0',
-                    label: 'Events',
-                    color: const Color(0xFF2ecc71),
-                  ),
-                ),
+                Expanded(child: _buildStatCard(
+                  icon: Icons.gavel,
+                  value: '0',
+                  label: 'Coming soon!',
+                  color: const Color(0xFFe74c3c),
+                )),
               ],
             ),
             
@@ -198,336 +195,31 @@ class _StudentDashboardState extends State<StudentDashboard> {
             
             Row(
               children: [
-                Expanded(
-                  child: _buildStatCard(
-                    icon: Icons.check_circle,
-                    value: '0',
-                    label: 'Attendance',
-                    color: const Color(0xFF9b59b6),
-                  ),
-                ),
+                Expanded(child: _buildStatCard(
+                  icon: Icons.event,
+                  value: '0',
+                  label: 'Coming soon!',
+                  color: Colors.orange,
+                )),
                 const SizedBox(width: 12),
-                Expanded(
-                  child: _buildStatCard(
-                    icon: Icons.gavel,
-                    value: '0',
-                    label: 'Violations',
-                    color: const Color(0xFFe74c3c),
-                  ),
-                ),
+                Expanded(child: _buildStatCard(
+                  icon: Icons.question_mark_rounded,
+                  value: '0',
+                  label: 'Coming soon!',
+                  color: Colors.deepPurple,
+                )),
               ],
             ),
 
             const SizedBox(height: 24),
 
-            // Vision & Mission Card
-            Obx(() => GestureDetector(
-              onTap: () => _controller.toggleCardExpansion(),
-              child: AnimatedContainer(
-                duration: const Duration(milliseconds: 300),
-                curve: Curves.easeInOut,
-                decoration: BoxDecoration(
-                  gradient: const LinearGradient(
-                    begin: Alignment.topLeft,
-                    end: Alignment.bottomRight,
-                    colors: [
-                      Color(0xFF1e174a),
-                      Color(0xFFf9a702),
-                      Color(0xFF737373),
-                    ],
-                    stops: [0.2, 0.5, 0.8],
-                    transform: GradientRotation(135 * (3.1415926535 / 180)),
-                  ),
-                  borderRadius: BorderRadius.circular(15.0),
-                  boxShadow: [
-                    BoxShadow(
-                      color: const Color(0xFF6F42C1).withOpacity(0.4),
-                      blurRadius: 20.0,
-                      spreadRadius: 1,
-                      offset: const Offset(0, 6),
-                    ),
-                  ],
-                ),
-                padding: const EdgeInsets.all(20.0),
-                margin: const EdgeInsets.only(bottom: 16.0),
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    // Header with icon
-                    Row(
-                      children: [
-                        Container(
-                          padding: const EdgeInsets.all(8),
-                          decoration: BoxDecoration(
-                            color: Colors.white.withOpacity(0.2),
-                            borderRadius: BorderRadius.circular(10),
-                          ),
-                          child: const Icon(
-                            Icons.lightbulb,
-                            color: Colors.white,
-                            size: 20,
-                          ),
-                        ),
-                        const SizedBox(width: 12),
-                        Text(
-                          'Vision & Mission',
-                          style: GoogleFonts.oswald(
-                            fontSize: 20,
-                            fontWeight: FontWeight.w700,
-                            color: Colors.white,
-                            height: 1.2,
-                          ),
-                        ),
-                      ],
-                    ),
-                    
-                    const SizedBox(height: 16),
-                    
-                    AnimatedCrossFade(
-                      duration: const Duration(milliseconds: 300),
-                      crossFadeState: _controller.isCardExpanded.value 
-                          ? CrossFadeState.showSecond 
-                          : CrossFadeState.showFirst,
-                      firstChild: Column(
-                        crossAxisAlignment: CrossAxisAlignment.start,
-                        children: [
-                          // Vision preview
-                          Text(
-                            'Vision',
-                            style: GoogleFonts.oswald(
-                              fontSize: 18,
-                              fontWeight: FontWeight.w600,
-                              color: Colors.white,
-                              height: 1.2,
-                            ),
-                          ),
-                          const SizedBox(height: 8),
-                          Text(
-                            'The University Student Government - Oroquieta of University of Science and Technology of Southern Philippines will facilitate Oroquieta Campus organizations...',
-                            style: GoogleFonts.oswald(
-                              fontSize: 16,
-                              fontWeight: FontWeight.w400,
-                              color: Colors.white.withOpacity(0.9),
-                              height: 1.6,
-                            ),
-                            textAlign: TextAlign.justify,
-                            maxLines: 2,
-                            overflow: TextOverflow.ellipsis,
-                          ),
-                        ],
-                      ),
-                      secondChild: Column(
-                        crossAxisAlignment: CrossAxisAlignment.start,
-                        children: [
-                          // Full Vision
-                          Text(
-                            'Vision',
-                            style: GoogleFonts.oswald(
-                              fontSize: 18,
-                              fontWeight: FontWeight.w600,
-                              color: Colors.white,
-                              height: 1.2,
-                            ),
-                          ),
-                          const SizedBox(height: 8),
-                          Text(
-                            'The University Student Government - Oroquieta of University of Science and Technology of Southern Philippines will facilitate Oroquieta Campus organizations and promote the interest of students to further cultivate and engage into a conscientious community of student leaders in achieving the common goal.',
-                            style: GoogleFonts.oswald(
-                              fontSize: 16,
-                              fontWeight: FontWeight.w400,
-                              color: Colors.white.withOpacity(0.9),
-                              height: 1.6,
-                            ),
-                            textAlign: TextAlign.justify,
-                          ),
-                          const SizedBox(height: 16),
-                          
-                          // Mission with divider
-                          Container(
-                            height: 1,
-                            color: Colors.white.withOpacity(0.3),
-                            margin: const EdgeInsets.symmetric(vertical: 8),
-                          ),
-                          
-                          Text(
-                            'Mission',
-                            style: GoogleFonts.oswald(
-                              fontSize: 18,
-                              fontWeight: FontWeight.w600,
-                              color: Colors.white,
-                              height: 1.2,
-                            ),
-                          ),
-                          const SizedBox(height: 8),
-                          Text(
-                            'We, the University Student Government – Oroquieta of University of Science and Technology of Southern Philippines, promote the welfare and unity of the student community through advocacy for and representation of the undergraduates\' student bodies\' diverse interests, concerns and needs. As advocates for undergraduate students, we work to facilitate change and respond to the challenges in our community through active outreach to the student body in a productive partnership with the University administration. In order to strengthen the undergraduate students\' community, we encourage students\' involvement and leadership development through accredited students\' organizations, University committee and USG Oroquieta.',
-                            style: GoogleFonts.oswald(
-                              fontSize: 16,
-                              fontWeight: FontWeight.w400,
-                              color: Colors.white.withOpacity(0.9),
-                              height: 1.6,
-                            ),
-                            textAlign: TextAlign.justify,
-                          ),
-                        ],
-                      ),
-                    ),
-                    
-                    // View More/Less Button
-                    Align(
-                      alignment: Alignment.center,
-                      child: Container(
-                        margin: const EdgeInsets.only(top: 20),
-                        decoration: BoxDecoration(
-                          color: Colors.white.withOpacity(0.2),
-                          borderRadius: BorderRadius.circular(25),
-                          border: Border.all(
-                            color: Colors.white.withOpacity(0.3),
-                            width: 1,
-                          ),
-                        ),
-                        padding: const EdgeInsets.symmetric(
-                          horizontal: 20,
-                          vertical: 10,
-                        ),
-                        child: Row(
-                          mainAxisSize: MainAxisSize.min,
-                          children: [
-                            Text(
-                              _controller.isCardExpanded.value ? 'Show Less' : 'Read More',
-                              style: GoogleFonts.oswald(
-                                fontSize: 14,
-                                fontWeight: FontWeight.w500,
-                                color: Colors.white,
-                              ),
-                            ),
-                            const SizedBox(width: 8),
-                            Icon(
-                              _controller.isCardExpanded.value 
-                                  ? Icons.keyboard_arrow_up 
-                                  : Icons.keyboard_arrow_down,
-                              color: Colors.white,
-                              size: 20,
-                            ),
-                          ],
-                        ),
-                      ),
-                    ),
-                  ],
-                ),
-              ),
-            )),
+            // Vision & Mission Card using GetX
+            Obx(() => _buildVisionMissionCard()),
 
             const SizedBox(height: 16),
 
-            // Recent Announcements Preview
-            Container(
-              decoration: BoxDecoration(
-                color: Colors.white,
-                borderRadius: BorderRadius.circular(15),
-                boxShadow: [
-                  BoxShadow(
-                    color: Colors.black.withOpacity(0.05),
-                    blurRadius: 10,
-                    offset: const Offset(0, 4),
-                  ),
-                ],
-              ),
-              padding: const EdgeInsets.all(20),
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  Row(
-                    mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                    children: [
-                      Text(
-                        'Recent Announcements',
-                        style: GoogleFonts.oswald(
-                          fontSize: 18,
-                          fontWeight: FontWeight.w700,
-                          color: const Color(0xFF1e174a),
-                        ),
-                      ),
-                      Container(
-                        padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
-                        decoration: BoxDecoration(
-                          color: const Color(0xFFf8f9fa),
-                          borderRadius: BorderRadius.circular(20),
-                        ),
-                        child: Text(
-                          _recentAnnouncements.isEmpty ? 'Empty' : '${_recentAnnouncements.length} New',
-                          style: TextStyle(
-                            color: _recentAnnouncements.isEmpty 
-                                ? const Color(0xFF666666)
-                                : const Color(0xFFe74c3c),
-                            fontWeight: FontWeight.w600,
-                            fontSize: 12,
-                          ),
-                        ),
-                      ),
-                    ],
-                  ),
-                  
-                  const SizedBox(height: 16),
-                  
-                  // Actual announcements list or placeholder
-                  if (_recentAnnouncements.isEmpty && !_isLoadingAnnouncements)
-                    Container(
-                      padding: const EdgeInsets.all(20),
-                      decoration: BoxDecoration(
-                        color: const Color(0xFFf8f9fa),
-                        borderRadius: BorderRadius.circular(10),
-                      ),
-                      child: Column(
-                        children: [
-                          Icon(
-                            Icons.campaign_outlined,
-                            size: 48,
-                            color: Colors.grey.shade400,
-                          ),
-                          const SizedBox(height: 12),
-                          Text(
-                            'No announcements yet',
-                            style: TextStyle(
-                              color: Colors.grey.shade600,
-                              fontSize: 16,
-                              fontWeight: FontWeight.w500,
-                          ),
-                          ),
-                          const SizedBox(height: 8),
-                          Text(
-                            'Check back later for updates',
-                            style: TextStyle(
-                              color: Colors.grey.shade500,
-                              fontSize: 14,
-                            ),
-                          ),
-                        ],
-                      ),
-                    )
-                  else if (_isLoadingAnnouncements)
-                    Container(
-                      padding: const EdgeInsets.all(20),
-                      decoration: BoxDecoration(
-                        color: const Color(0xFFf8f9fa),
-                        borderRadius: BorderRadius.circular(10),
-                      ),
-                      child: const Center(
-                        child: CircularProgressIndicator(
-                          strokeWidth: 2,
-                          valueColor: AlwaysStoppedAnimation<Color>(Color(0xFF1e174a)),
-                        ),
-                      ),
-                    )
-                  else
-                    Column(
-                      children: _recentAnnouncements.map((announcement) {
-                        return _buildAnnouncementItem(announcement);
-                      }).toList(),
-                    ),
-                ],
-              ),
-            ),
+            // Recent Announcements Preview using GetX
+            Obx(() => _buildRecentAnnouncements()),
           ],
         ),
       ),
@@ -535,68 +227,70 @@ class _StudentDashboardState extends State<StudentDashboard> {
   }
 
   Widget _buildAnnouncementsCard() {
-    return Container(
-      decoration: BoxDecoration(
-        color: Colors.white,
-        borderRadius: BorderRadius.circular(12),
-        boxShadow: [
-          BoxShadow(
-            color: Colors.black.withOpacity(0.05),
-            blurRadius: 8,
-            offset: const Offset(0, 3),
-          ),
-        ],
-      ),
-      padding: const EdgeInsets.all(16),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          Container(
-            width: 48,
-            height: 48,
-            decoration: BoxDecoration(
-              color: const Color(0xFF3498db).withOpacity(0.1),
-              borderRadius: BorderRadius.circular(12),
+    return Obx(() {
+      return Container(
+        decoration: BoxDecoration(
+          color: Colors.white,
+          borderRadius: BorderRadius.circular(12),
+          boxShadow: [
+            BoxShadow(
+              color: Colors.black.withOpacity(0.05),
+              blurRadius: 8,
+              offset: const Offset(0, 3),
             ),
-            child: const Icon(
-              Icons.campaign,
-              color: Color(0xFF3498db),
-              size: 24,
+          ],
+        ),
+        padding: const EdgeInsets.all(16),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Container(
+              width: 48,
+              height: 48,
+              decoration: BoxDecoration(
+                color: const Color(0xFF3498db).withOpacity(0.1),
+                borderRadius: BorderRadius.circular(12),
+              ),
+              child: const Icon(
+                Icons.campaign,
+                color: Color(0xFF3498db),
+                size: 24,
+              ),
             ),
-          ),
-          const SizedBox(height: 12),
-          if (_isLoadingAnnouncements)
-            const SizedBox(
-              height: 24,
-              width: 40,
-              child: Center(
-                child: CircularProgressIndicator(
-                  strokeWidth: 2,
-                  valueColor: AlwaysStoppedAnimation<Color>(Color(0xFF1e174a)),
+            const SizedBox(height: 12),
+            if (_announcementController.isLoading.value)
+              const SizedBox(
+                height: 24,
+                width: 40,
+                child: Center(
+                  child: CircularProgressIndicator(
+                    strokeWidth: 2,
+                    valueColor: AlwaysStoppedAnimation<Color>(Color(0xFF1e174a)),
+                  ),
+                ),
+              )
+            else
+              Text(
+                '${_announcementController.announcementCount}',
+                style: GoogleFonts.oswald(
+                  fontSize: 24,
+                  fontWeight: FontWeight.w700,
+                  color: const Color(0xFF1e174a),
                 ),
               ),
-            )
-          else
+            const SizedBox(height: 4),
             Text(
-              '$_announcementCount',
+              'Announcements',
               style: GoogleFonts.oswald(
-                fontSize: 24,
-                fontWeight: FontWeight.w700,
-                color: const Color(0xFF1e174a),
+                fontSize: 14,
+                fontWeight: FontWeight.w500,
+                color: const Color(0xFF666666),
               ),
             ),
-          const SizedBox(height: 4),
-          Text(
-            'Announcements',
-            style: GoogleFonts.oswald(
-              fontSize: 14,
-              fontWeight: FontWeight.w500,
-              color: const Color(0xFF666666),
-            ),
-          ),
-        ],
-      ),
-    );
+          ],
+        ),
+      );
+    });
   }
 
   Widget _buildStatCard({
@@ -652,6 +346,317 @@ class _StudentDashboardState extends State<StudentDashboard> {
               color: const Color(0xFF666666),
             ),
           ),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildVisionMissionCard() {
+    return GestureDetector(
+      onTap: () => _dashboardController.toggleCardExpansion(),
+      child: AnimatedContainer(
+        duration: const Duration(milliseconds: 300),
+        curve: Curves.easeInOut,
+        decoration: BoxDecoration(
+          gradient: const LinearGradient(
+            begin: Alignment.topLeft,
+            end: Alignment.bottomRight,
+            colors: [
+              Color(0xFF1e174a),
+              Color(0xFFf9a702),
+              Color(0xFF737373),
+            ],
+            stops: [0.2, 0.5, 0.8],
+            transform: GradientRotation(135 * (3.1415926535 / 180)),
+          ),
+          borderRadius: BorderRadius.circular(15.0),
+          boxShadow: [
+            BoxShadow(
+              color: const Color(0xFF6F42C1).withOpacity(0.4),
+              blurRadius: 20.0,
+              spreadRadius: 1,
+              offset: const Offset(0, 6),
+            ),
+          ],
+        ),
+        padding: const EdgeInsets.all(20.0),
+        margin: const EdgeInsets.only(bottom: 16.0),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            // Header with icon
+            Row(
+              children: [
+                Container(
+                  padding: const EdgeInsets.all(8),
+                  decoration: BoxDecoration(
+                    color: Colors.white.withOpacity(0.2),
+                    borderRadius: BorderRadius.circular(10),
+                  ),
+                  child: const Icon(
+                    Icons.lightbulb,
+                    color: Colors.white,
+                    size: 20,
+                  ),
+                ),
+                const SizedBox(width: 12),
+                Text(
+                  'Vision & Mission',
+                  style: GoogleFonts.oswald(
+                    fontSize: 20,
+                    fontWeight: FontWeight.w700,
+                    color: Colors.white,
+                    height: 1.2,
+                  ),
+                ),
+              ],
+            ),
+            
+            const SizedBox(height: 16),
+            
+            AnimatedCrossFade(
+              duration: const Duration(milliseconds: 300),
+              crossFadeState: _dashboardController.isCardExpanded.value 
+                  ? CrossFadeState.showSecond 
+                  : CrossFadeState.showFirst,
+              firstChild: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  // Vision preview
+                  Text(
+                    'Vision',
+                    style: GoogleFonts.oswald(
+                      fontSize: 18,
+                      fontWeight: FontWeight.w600,
+                      color: Colors.white,
+                      height: 1.2,
+                    ),
+                  ),
+                  const SizedBox(height: 8),
+                  Text(
+                    'The University Student Government - Oroquieta of University of Science and Technology of Southern Philippines will facilitate Oroquieta Campus organizations...',
+                    style: GoogleFonts.oswald(
+                      fontSize: 16,
+                      fontWeight: FontWeight.w400,
+                      color: Colors.white.withOpacity(0.9),
+                      height: 1.6,
+                    ),
+                    textAlign: TextAlign.justify,
+                    maxLines: 2,
+                    overflow: TextOverflow.ellipsis,
+                  ),
+                ],
+              ),
+              secondChild: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  // Full Vision
+                  Text(
+                    'Vision',
+                    style: GoogleFonts.oswald(
+                      fontSize: 18,
+                      fontWeight: FontWeight.w600,
+                      color: Colors.white,
+                      height: 1.2,
+                    ),
+                  ),
+                  const SizedBox(height: 8),
+                  Text(
+                    'The University Student Government - Oroquieta of University of Science and Technology of Southern Philippines will facilitate Oroquieta Campus organizations and promote the interest of students to further cultivate and engage into a conscientious community of student leaders in achieving the common goal.',
+                    style: GoogleFonts.oswald(
+                      fontSize: 16,
+                      fontWeight: FontWeight.w400,
+                      color: Colors.white.withOpacity(0.9),
+                      height: 1.6,
+                    ),
+                    textAlign: TextAlign.justify,
+                  ),
+                  const SizedBox(height: 16),
+                  
+                  // Mission with divider
+                  Container(
+                    height: 1,
+                    color: Colors.white.withOpacity(0.3),
+                    margin: const EdgeInsets.symmetric(vertical: 8),
+                  ),
+                  
+                  Text(
+                    'Mission',
+                    style: GoogleFonts.oswald(
+                      fontSize: 18,
+                      fontWeight: FontWeight.w600,
+                      color: Colors.white,
+                      height: 1.2,
+                    ),
+                  ),
+                  const SizedBox(height: 8),
+                  Text(
+                    'We, the University Student Government – Oroquieta of University of Science and Technology of Southern Philippines, promote the welfare and unity of the student community through advocacy for and representation of the undergraduates\' student bodies\' diverse interests, concerns and needs. As advocates for undergraduate students, we work to facilitate change and respond to the challenges in our community through active outreach to the student body in a productive partnership with the University administration. In order to strengthen the undergraduate students\' community, we encourage students\' involvement and leadership development through accredited students\' organizations, University committee and USG Oroquieta.',
+                    style: GoogleFonts.oswald(
+                      fontSize: 16,
+                      fontWeight: FontWeight.w400,
+                      color: Colors.white.withOpacity(0.9),
+                      height: 1.6,
+                    ),
+                    textAlign: TextAlign.justify,
+                  ),
+                ],
+              ),
+            ),
+            
+            // View More/Less Button
+            Align(
+              alignment: Alignment.center,
+              child: Container(
+                margin: const EdgeInsets.only(top: 20),
+                decoration: BoxDecoration(
+                  color: Colors.white.withOpacity(0.2),
+                  borderRadius: BorderRadius.circular(25),
+                  border: Border.all(
+                    color: Colors.white.withOpacity(0.3),
+                    width: 1,
+                  ),
+                ),
+                padding: const EdgeInsets.symmetric(
+                  horizontal: 20,
+                  vertical: 10,
+                ),
+                child: Row(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    Text(
+                      _dashboardController.isCardExpanded.value ? 'Show Less' : 'Read More',
+                      style: GoogleFonts.oswald(
+                        fontSize: 14,
+                        fontWeight: FontWeight.w500,
+                        color: Colors.white,
+                      ),
+                    ),
+                    const SizedBox(width: 8),
+                    Icon(
+                      _dashboardController.isCardExpanded.value 
+                          ? Icons.keyboard_arrow_up 
+                          : Icons.keyboard_arrow_down,
+                      color: Colors.white,
+                      size: 20,
+                    ),
+                  ],
+                ),
+              ),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
+  Widget _buildRecentAnnouncements() {
+    return Container(
+      decoration: BoxDecoration(
+        color: Colors.white,
+        borderRadius: BorderRadius.circular(15),
+        boxShadow: [
+          BoxShadow(
+            color: Colors.black.withOpacity(0.05),
+            blurRadius: 10,
+            offset: const Offset(0, 4),
+          ),
+        ],
+      ),
+      padding: const EdgeInsets.all(20),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Row(
+            mainAxisAlignment: MainAxisAlignment.spaceBetween,
+            children: [
+              Text(
+                'Recent Announcements',
+                style: GoogleFonts.oswald(
+                  fontSize: 18,
+                  fontWeight: FontWeight.w700,
+                  color: const Color(0xFF1e174a),
+                ),
+              ),
+              Container(
+                padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
+                decoration: BoxDecoration(
+                  color: const Color(0xFFf8f9fa),
+                  borderRadius: BorderRadius.circular(20),
+                ),
+                child: Text(
+                  _announcementController.recentAnnouncements.isEmpty 
+                      ? 'Empty' 
+                      : '${_announcementController.recentAnnouncements.length} New',
+                  style: TextStyle(
+                    color: _announcementController.recentAnnouncements.isEmpty 
+                        ? const Color(0xFF666666)
+                        : const Color(0xFFe74c3c),
+                    fontWeight: FontWeight.w600,
+                    fontSize: 12,
+                  ),
+                ),
+              ),
+            ],
+          ),
+          
+          const SizedBox(height: 16),
+          
+          // Content based on state
+          if (_announcementController.isLoading.value)
+            Container(
+              padding: const EdgeInsets.all(20),
+              decoration: BoxDecoration(
+                color: const Color(0xFFf8f9fa),
+                borderRadius: BorderRadius.circular(10),
+              ),
+              child: const Center(
+                child: CircularProgressIndicator(
+                  strokeWidth: 2,
+                  valueColor: AlwaysStoppedAnimation<Color>(Color(0xFF1e174a)),
+                ),
+              ),
+            )
+          else if (_announcementController.recentAnnouncements.isEmpty)
+            Container(
+              padding: const EdgeInsets.all(20),
+              decoration: BoxDecoration(
+                color: const Color(0xFFf8f9fa),
+                borderRadius: BorderRadius.circular(10),
+              ),
+              child: Column(
+                children: [
+                  Icon(
+                    Icons.campaign_outlined,
+                    size: 48,
+                    color: Colors.grey.shade400,
+                  ),
+                  const SizedBox(height: 12),
+                  Text(
+                    'No announcements yet',
+                    style: TextStyle(
+                      color: Colors.grey.shade600,
+                      fontSize: 16,
+                      fontWeight: FontWeight.w500,
+                    ),
+                  ),
+                  const SizedBox(height: 8),
+                  Text(
+                    'Check back later for updates',
+                    style: TextStyle(
+                      color: Colors.grey.shade500,
+                      fontSize: 14,
+                    ),
+                  ),
+                ],
+              ),
+            )
+          else
+            Column(
+              children: _announcementController.recentAnnouncements
+                  .map((announcement) => _buildAnnouncementItem(announcement))
+                  .toList(),
+            ),
         ],
       ),
     );
@@ -765,7 +770,7 @@ class _StudentDashboardState extends State<StudentDashboard> {
       screens: screens,
       backgroundColor: Colors.white,
       onMenuStateChanged: (isOpen) {
-        _controller.toggleMenuState(isOpen);
+        _dashboardController.toggleMenuState(isOpen);
       },
       onHomeTap: _handleHomeTap,
       onLogoutTap: _handleLogoutTap,
