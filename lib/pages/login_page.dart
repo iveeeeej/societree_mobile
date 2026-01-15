@@ -149,7 +149,7 @@ class _LoginPageState extends State<LoginPage> {
                   height: 50,
                   width: 350,
                   child: myButton(context, 'LOGIN', (){
-
+                    Get.toNamed('/dashboard');
                   },
                   style: ElevatedButton.styleFrom(
                     backgroundColor: Color(0xFF8bc53f),
