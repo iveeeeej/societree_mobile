@@ -1,9 +1,10 @@
 import 'package:flutter/material.dart';
 import 'package:google_fonts/google_fonts.dart';
 import 'package:get/get.dart';
+import 'package:societree_mobile/components/button.dart';
+import 'package:societree_mobile/pages/login_page.dart';
 import 'dart:async';
 import 'dart:ui';
-import 'package:societree_mobile/pages/login_page.dart';
 
 class DashboardPage extends StatefulWidget {
   const DashboardPage({super.key});
@@ -84,7 +85,7 @@ class _DashboardPageState extends State<DashboardPage> {
           mainAxisSize: MainAxisSize.min,
           children: [
             Image.asset(
-              'assets/org_logos/societree.png',
+              'assets/org_logos/societree_2.png',
               height: 40,
               fit: BoxFit.contain,
               errorBuilder: (c, e, s) =>
@@ -94,7 +95,7 @@ class _DashboardPageState extends State<DashboardPage> {
             Text(
               'SocieTREE',
               style: GoogleFonts.oswald(
-                color: Color(0xFF2e2a2b),
+                color: Color(0xFF5b4c4a),
                 fontSize: 25,
                 fontWeight: FontWeight.bold
               ),
@@ -104,7 +105,7 @@ class _DashboardPageState extends State<DashboardPage> {
         actions: [
           IconButton(
             tooltip: 'Profile',
-            icon: const Icon(Icons.account_circle), iconSize: 25, color: Color(0xFF2e2a2b),
+            icon: const Icon(Icons.account_circle), iconSize: 25, color: Color(0xFF5b4c4a),
             onPressed: () {
               Navigator.of(context).push(
                 MaterialPageRoute(
@@ -117,7 +118,7 @@ class _DashboardPageState extends State<DashboardPage> {
           ),
           IconButton(
             tooltip: 'Logout',
-            icon: const Icon(Icons.logout_outlined), iconSize: 25, color: Color(0xFF2e2a2b),
+            icon: const Icon(Icons.logout_outlined), iconSize: 25, color: Color(0xFF5b4c4a),
             onPressed: () async {
               final ok = await showDialog<bool>(
                 context: context,
@@ -126,6 +127,7 @@ class _DashboardPageState extends State<DashboardPage> {
                   return BackdropFilter(
                     filter: ImageFilter.blur(sigmaX: 6, sigmaY: 6),
                     child: AlertDialog(
+                      backgroundColor: Colors.white,
                       title: Text(
                         'Logout',
                         style: GoogleFonts.oswald(
@@ -138,10 +140,16 @@ class _DashboardPageState extends State<DashboardPage> {
                           onPressed: () => Navigator.of(ctx).pop(false),
                           child: const Text('Cancel'),
                         ),
-                        ElevatedButton(
-                          onPressed: () => Navigator.of(ctx).pop(true),
-                          child: const Text('Logout'),
-                        ),
+                        myButton(context, 'Logout', (){
+                          Get.offAndToNamed('/login');
+                        },
+                        style: ElevatedButton.styleFrom(
+                          backgroundColor: Colors.white,
+                          shape: RoundedRectangleBorder(
+                            borderRadius: BorderRadius.circular(15)
+                          )
+                        )
+                        )
                       ],
                     ),
                   );
