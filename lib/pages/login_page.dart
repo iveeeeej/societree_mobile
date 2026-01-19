@@ -64,7 +64,7 @@ class _LoginPageState extends State<LoginPage> {
             Expanded(
               child: Container(
                 decoration: BoxDecoration(
-                  color: Colors.white,
+                  color: Colors.grey[50],
                   borderRadius: BorderRadius.only(topLeft: Radius.circular(50), topRight: Radius.circular(50))
                 ),
                 child: Padding(

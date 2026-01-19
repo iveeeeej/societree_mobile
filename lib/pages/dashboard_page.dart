@@ -3,6 +3,7 @@ import 'package:google_fonts/google_fonts.dart';
 import 'package:get/get.dart';
 import 'package:societree_mobile/components/button.dart';
 import 'package:societree_mobile/pages/login_page.dart';
+import 'package:societree_mobile/pages/profile_page.dart';
 import 'dart:async';
 import 'dart:ui';
 
@@ -77,7 +78,7 @@ class _DashboardPageState extends State<DashboardPage> {
     ];
 
     return Scaffold(
-      backgroundColor: Colors.white,
+      backgroundColor: Colors.grey[50],
       appBar: AppBar(
         automaticallyImplyLeading: false,
         backgroundColor: Color(0xFF8bc53f),
@@ -109,9 +110,7 @@ class _DashboardPageState extends State<DashboardPage> {
             onPressed: () {
               Navigator.of(context).push(
                 MaterialPageRoute(
-                  builder: (_) => const Scaffold(
-                    body: Center(child: Text('Profile UI Coming Soon')),
-                  ),
+                  builder: (_) => const ProfilePage(),
                 ),
               );
             },
@@ -193,7 +192,7 @@ class _DashboardPageState extends State<DashboardPage> {
                                 itemBuilder: (context, index) {
                                   final path = _bannerAssets[index];
                                   return Container(
-                                    color: Colors.grey.shade100,
+                                    color: Colors.grey[200],
                                     alignment: Alignment.center,
                                     child: Image.asset(
                                       path,
@@ -229,9 +228,7 @@ class _DashboardPageState extends State<DashboardPage> {
                                         color: active
                                             ? Colors.black54
                                             : Colors.black26,
-                                        borderRadius: BorderRadius.circular(
-                                          8,
-                                        ),
+                                        borderRadius: BorderRadius.circular(8),
                                       ),
                                     );
                                   },

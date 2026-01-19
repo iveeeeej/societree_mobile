@@ -4,14 +4,14 @@ import 'package:societree_mobile/components/qr_scanner.dart';
 import 'package:societree_mobile/pages/dashboard_page.dart';
 import 'package:societree_mobile/pages/login_page.dart';
 import 'package:societree_mobile/pages/splashscreen_page.dart';
-import 'package:societree_mobile/pages/modules/access/splashscreen_page.dart';
-import 'package:societree_mobile/pages/modules/afprotech/splashscreen_page.dart';
-import 'package:societree_mobile/pages/modules/arcu/splashscreen_page.dart';
-import 'package:societree_mobile/pages/modules/elecom/splashscreen_page.dart';
-import 'package:societree_mobile/pages/modules/pafe/splashscreen_page.dart';
-import 'package:societree_mobile/pages/modules/redcross/splashscreen_page.dart';
-import 'package:societree_mobile/pages/modules/site/splashscreen_page.dart';
-import 'package:societree_mobile/pages/modules/usg/splashscreen_page.dart';
+import 'package:societree_mobile/pages/modules/access/pages/splashscreen_page.dart';
+import 'package:societree_mobile/pages/modules/afprotech/pages/splashscreen_page.dart';
+import 'package:societree_mobile/pages/modules/arcu/pages/splashscreen_page.dart';
+import 'package:societree_mobile/pages/modules/elecom/pages/splashscreen_page.dart';
+import 'package:societree_mobile/pages/modules/pafe/pages/splashscreen_page.dart';
+import 'package:societree_mobile/pages/modules/redcross/pages/splashscreen_page.dart';
+import 'package:societree_mobile/pages/modules/site/pages/splashscreen_page.dart';
+import 'package:societree_mobile/pages/modules/usg/pages/splashscreen_page.dart';
 
 void main(){
   runApp(MyApp());
