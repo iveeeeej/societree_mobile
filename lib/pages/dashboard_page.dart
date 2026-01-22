@@ -140,7 +140,9 @@ class _DashboardPageState extends State<DashboardPage> {
                           child: const Text('Cancel'),
                         ),
                         myButton(context, 'Logout', (){
-                          Get.offAndToNamed('/login');
+                          Navigator.pushNamedAndRemoveUntil(
+                            context, '/login', (route) => false,
+                          );
                         },
                         style: ElevatedButton.styleFrom(
                           backgroundColor: Colors.white,
