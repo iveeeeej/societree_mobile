@@ -47,31 +47,33 @@ class _SiteSplashscreenPageState extends State<SiteSplashscreenPage> {
                   mainAxisAlignment: MainAxisAlignment.center,
                   children: [
                     // Logo
-                    Padding(
-                      padding: const EdgeInsets.all(8.0),
-                      child: Container(
-                        height: 220,
-                        width: 220,
-                        child: Image.asset(
-                          'assets/org_logos/site.png',
-                          fit: BoxFit.fitHeight,
-                        ),
-                      ),
-                    ),
+                    // Padding(
+                    //   padding: const EdgeInsets.all(8.0),
+                    //   child: Container(
+                    //     height: 220,
+                    //     width: 220,
+                    //     child: Image.asset(
+                    //       'assets/org_logos/site.png',
+                    //       fit: BoxFit.fitHeight,
+                    //     ),
+                    //   ),
+                    // ),
                     
                     // Label text
                     Text(
-                      'Society of Information Technology Enthusiast',
+                      'SOCIETY OF INFORMATION TECHNOLOGY ENTHUSIAST',
+                      textAlign: TextAlign.center,
                       style: GoogleFonts.oswald(
-                        color: Color(0xFF0d0c0a),
+                        color: Colors.white,
                         fontSize: 25,
+                        fontWeight: FontWeight.bold
                       ),
                     ),
                     
                     // Loading indicator
                     SizedBox(height: 20),
                     CircularProgressIndicator(
-                      color: Color(0xFF0d0c0a),
+                      color: Colors.white,
                     ),
                     SizedBox(height: 20),
                   ],
