@@ -33,7 +33,7 @@ class _AfproSplashscreenPageState extends State<AfproSplashscreenPage> {
         children: [
           // Background image
           Image.asset(
-            'assets/splash_screens/usg.png',
+            'assets/splash_screens/afprotech.png',
             fit: BoxFit.cover,
             width: double.infinity,
             height: double.infinity,
@@ -47,32 +47,33 @@ class _AfproSplashscreenPageState extends State<AfproSplashscreenPage> {
                   mainAxisAlignment: MainAxisAlignment.center,
                   children: [
                     // Logo
-                    Padding(
-                      padding: const EdgeInsets.all(8.0),
-                      child: Container(
-                        height: 220,
-                        width: 220,
-                        child: Image.asset(
-                          'assets/org_logos/afprotech.png',
-                          fit: BoxFit.fitHeight,
-                        ),
-                      ),
-                    ),
+                    // Padding(
+                    //   padding: const EdgeInsets.all(8.0),
+                    //   child: Container(
+                    //     height: 220,
+                    //     width: 220,
+                    //     child: Image.asset(
+                    //       'assets/org_logos/afprotech.png',
+                    //       fit: BoxFit.fitHeight,
+                    //     ),
+                    //   ),
+                    // ),
                     
                     // Label text
-                    Text(
-                      'Associaton of Food Processing and Technology Students',
+                    Text( 
+                      'ASSOCIATION OF FOOD PROCESSING AND TECHNOLOGY STUDENTS',
                       textAlign: TextAlign.center,
                       style: GoogleFonts.oswald(
-                        color: Color(0xFF0d0c0a),
+                        color: Colors.white,
                         fontSize: 22,
+                        fontWeight: FontWeight.bold
                       ),
                     ),
                     
                     // Loading indicator
                     SizedBox(height: 20),
                     CircularProgressIndicator(
-                      color: Color(0xFF0d0c0a),
+                      color: Colors.white,
                     ),
                     SizedBox(height: 20),
                   ],

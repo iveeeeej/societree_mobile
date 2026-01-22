@@ -33,7 +33,7 @@ class _AccessSplashscreenPageState extends State<AccessSplashscreenPage> {
         children: [
           // Background image
           Image.asset(
-            'assets/splash_screens/usg.png',
+            'assets/splash_screens/access.png',
             fit: BoxFit.cover,
             width: double.infinity,
             height: double.infinity,
@@ -47,32 +47,33 @@ class _AccessSplashscreenPageState extends State<AccessSplashscreenPage> {
                   mainAxisAlignment: MainAxisAlignment.center,
                   children: [
                     // Logo
-                    Padding(
-                      padding: const EdgeInsets.all(8.0),
-                      child: Container(
-                        height: 220,
-                        width: 220,
-                        child: Image.asset(
-                          'assets/org_logos/access.png',
-                          fit: BoxFit.fitHeight,
-                        ),
-                      ),
-                    ),
+                    // Padding(
+                    //   padding: const EdgeInsets.all(8.0),
+                    //   child: Container(
+                    //     height: 220,
+                    //     width: 220,
+                    //     child: Image.asset(
+                    //       'assets/org_logos/access.png',
+                    //       fit: BoxFit.fitHeight,
+                    //     ),
+                    //   ),
+                    // ),
                     
                     // Label text
                     Text(
-                      'Active Certified Computer-Enhance Student Society',
+                      'ACTIVE CERTIFIED COMPUTER-ENHANCE STUDENT SOCIETY',
                       textAlign: TextAlign.center,
                       style: GoogleFonts.oswald(
-                        color: Color(0xFF0d0c0a),
-                        fontSize: 22,
+                        color: Colors.white,
+                        fontSize: 20,
+                        fontWeight: FontWeight.bold
                       ),
                     ),
                     
                     // Loading indicator
                     SizedBox(height: 20),
                     CircularProgressIndicator(
-                      color: Color(0xFF0d0c0a),
+                      color: Colors.white,
                     ),
                     SizedBox(height: 20),
                   ],

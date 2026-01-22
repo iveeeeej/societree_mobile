@@ -33,7 +33,7 @@ class _SiteSplashscreenPageState extends State<SiteSplashscreenPage> {
         children: [
           // Background image
           Image.asset(
-            'assets/splash_screens/usg.png',
+            'assets/splash_screens/site.png',
             fit: BoxFit.cover,
             width: double.infinity,
             height: double.infinity,

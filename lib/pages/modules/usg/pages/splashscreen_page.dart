@@ -45,31 +45,32 @@ class _UsgSplashscreenPageState extends State<UsgSplashscreenPage> {
                   mainAxisAlignment: MainAxisAlignment.center,
                   children: [
                     // Logo
-                    Padding(
-                      padding: const EdgeInsets.all(8.0),
-                      child: Container(
-                        height: 220,
-                        width: 220,
-                        child: Image.asset(
-                          'assets/org_logos/usg.png',
-                          fit: BoxFit.fitHeight,
-                        ),
-                      ),
-                    ),
+                    // Padding(
+                    //   padding: const EdgeInsets.all(8.0),
+                    //   child: Container(
+                    //     height: 220,
+                    //     width: 220,
+                    //     child: Image.asset(
+                    //       'assets/org_logos/usg.png',
+                    //       fit: BoxFit.fitHeight,
+                    //     ),
+                    //   ),
+                    // ),
                     
-                    // Label text
                     Text(
-                      'University of Student Government',
+                      'UNIVERSITY OF STUDENT\nGOVERNMENT',
+                      textAlign: TextAlign.center,
                       style: GoogleFonts.oswald(
-                        color: Color(0xFF0d0c0a),
+                        color: Colors.white,
                         fontSize: 25,
+                        fontWeight: FontWeight.bold,
                       ),
                     ),
                     
                     // Loading indicator
                     SizedBox(height: 20),
                     CircularProgressIndicator(
-                      color: Color(0xFF0d0c0a),
+                      color: Colors.white,
                     ),
                     SizedBox(height: 20),
                   ],

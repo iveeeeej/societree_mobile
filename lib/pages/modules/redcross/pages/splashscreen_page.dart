@@ -31,7 +31,7 @@ class _RedSplashscreenPageState extends State<RedSplashscreenPage> {
         children: [
           // Background image
           Image.asset(
-            'assets/splash_screens/usg.png',
+            'assets/splash_screens/redcross.png',
             fit: BoxFit.cover,
             width: double.infinity,
             height: double.infinity,
@@ -45,31 +45,32 @@ class _RedSplashscreenPageState extends State<RedSplashscreenPage> {
                   mainAxisAlignment: MainAxisAlignment.center,
                   children: [
                     // Logo
-                    Padding(
-                      padding: const EdgeInsets.all(8.0),
-                      child: Container(
-                        height: 220,
-                        width: 220,
-                        child: Image.asset(
-                          'assets/org_logos/redcross.png',
-                          fit: BoxFit.fitHeight,
-                        ),
-                      ),
-                    ),
+                    // Padding(
+                    //   padding: const EdgeInsets.all(8.0),
+                    //   child: Container(
+                    //     height: 220,
+                    //     width: 220,
+                    //     child: Image.asset(
+                    //       'assets/org_logos/redcross.png',
+                    //       fit: BoxFit.fitHeight,
+                    //     ),
+                    //   ),
+                    // ),
                     
                     // Label text
                     Text(
-                      'Red Cross USTP Council',
+                      'RED CROSS USTP COUNCIL',
                       style: GoogleFonts.oswald(
-                        color: Color(0xFF0d0c0a),
+                        color: Colors.white,
                         fontSize: 25,
+                        fontWeight: FontWeight.bold
                       ),
                     ),
                     
                     // Loading indicator
                     SizedBox(height: 20),
                     CircularProgressIndicator(
-                      color: Color(0xFF0d0c0a),
+                      color: Colors.white,
                     ),
                     SizedBox(height: 20),
                   ],
